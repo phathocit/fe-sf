@@ -1,0 +1,13 @@
+{
+  "not_found": "This stall could not be found. It may have moved or closed.",
+  "error_404": "Oops! 404 Error",
+  "back_home": "Back to Home",
+  "opening_hours": "Opening Hours: {{hours}}",
+  "map_btn": "MAP",
+  "map_subtitle": "Find the stall",
+  "rating_title": "Overall Rating",
+  "description_title": "Description",
+  "menu_title": "Menu",
+  "menu_count": "{{count}} items",
+  "currency": "VND"
+}

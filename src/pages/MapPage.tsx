@@ -1,13 +1,16 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
 	MapContainer,
 	TileLayer,
 	Marker,
 	Popup,
 	useMap,
+	useMapEvents,
 	Polyline,
+	Circle,
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTranslation } from 'react-i18next';
 import { stallsData, type Stall } from '../data/mockData';
 import L from 'leaflet';
 import {
@@ -21,6 +24,8 @@ import {
 	Footprints,
 	Search,
 	Filter,
+	Volume2,
+	VolumeX,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -58,7 +63,17 @@ function MapController({ center }: { center: [number, number] }) {
 	return null;
 }
 
+function MapEvents({ onMapClick }: { onMapClick: () => void }) {
+	useMapEvents({
+		click: () => {
+			onMapClick();
+		},
+	});
+	return null;
+}
+
 export default function MapPage() {
+	const { t } = useTranslation('map');
 	const defaultCenter: [number, number] = [10.7601, 106.7042]; // Center of Vĩnh Khánh, District 4
 	const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
 	const [geoError, setGeoError] = useState('');
@@ -78,6 +93,14 @@ export default function MapPage() {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [selectedCategory, setSelectedCategory] = useState<string>('All');
 	const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
+	const GEOFENCE_RADIUS = 25; // 25 meters
+	const [mockLoc, setMockLoc] = useState<[number, number] | null>(null);
+	const [voiceTourEnabled, setVoiceTourEnabled] = useState(false);
+	const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+	const [playingStallName, setPlayingStallName] = useState<string | null>(null);
+	const audioRef = useRef<HTMLAudioElement | null>(null);
+
+	const currentUserLoc = mockLoc || userLoc;
 
 	const categories = ['All', ...new Set(stallsData.map((s) => s.category))];
 
@@ -91,10 +114,19 @@ export default function MapPage() {
 	});
 
 	const getDistanceStr = (coords: [number, number]) => {
-		if (!userLoc) return '';
-		const d = L.latLng(userLoc).distanceTo(L.latLng(coords));
+		if (!currentUserLoc) return '';
+		const d = L.latLng(currentUserLoc).distanceTo(L.latLng(coords));
 		return d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
 	};
+
+	const isInsideGeofence = useCallback(
+		(coords: [number, number]) => {
+			if (!currentUserLoc) return false;
+			const distance = L.latLng(currentUserLoc).distanceTo(L.latLng(coords));
+			return distance <= GEOFENCE_RADIUS;
+		},
+		[currentUserLoc],
+	);
 
 	const fetchRoute = async (
 		start: [number, number],
@@ -145,7 +177,7 @@ export default function MapPage() {
 
 	const locateUser = () => {
 		if (!navigator.geolocation) {
-			setGeoError('Trình duyệt của bạn không hỗ trợ định vị.');
+			setGeoError(t('geo_support_error'));
 			return;
 		}
 		navigator.geolocation.getCurrentPosition(
@@ -156,7 +188,7 @@ export default function MapPage() {
 				setGeoError('');
 			},
 			() => {
-				setGeoError('Không thể lấy vị trí. Vui lòng cấp quyền định vị GPS.');
+				setGeoError(t('geo_permission_error'));
 			},
 		);
 	};
@@ -174,24 +206,71 @@ export default function MapPage() {
 				if (!isMounted) return;
 				const { latitude, longitude } = position.coords;
 				setUserLoc([latitude, longitude]);
-				setMapCenter([latitude, longitude]);
 				setGeoError('');
 			},
 			() => {
 				if (isMounted) {
-					setGeoError('Không thể lấy vị trí. Vui lòng cấp quyền định vị GPS.');
+					setGeoError(t('geo_permission_error'));
 				}
 			},
 		);
 		return () => {
 			isMounted = false;
 		};
-	}, []);
+	}, [t]);
 
-	// Auto-scroll sidebar AND Open Marker Popup when active stall changes
+	// Audio Tour Logic
 	useEffect(() => {
+		if (!currentUserLoc || !voiceTourEnabled) {
+			if (audioRef.current) {
+				audioRef.current.pause();
+				setActiveAudioId(null);
+			}
+			return;
+		}
+
+		// Find if we are inside any stall with an audio URL
+		const stallInside = stallsData.find((s) => s.audioUrl && isInsideGeofence(s.coordinates as [number, number]));
+
+		if (stallInside) {
+			if (activeAudioId !== stallInside.id) {
+				// New stall entered
+				if (audioRef.current) {
+					audioRef.current.pause();
+				}
+				const audio = new Audio(stallInside.audioUrl);
+				audio.play()
+					.then(() => setPlayingStallName(stallInside.name))
+					.catch((e) => {
+						console.log('Audio play blocked:', e);
+						setPlayingStallName(`⚠️ Click to play: ${stallInside.name}`);
+					});
+				audioRef.current = audio;
+				setActiveAudioId(stallInside.id);
+			}
+		} else {
+			// Left any stall zone
+			if (audioRef.current) {
+				audioRef.current.pause();
+				setActiveAudioId(null);
+				setPlayingStallName(null);
+			}
+		}
+
+		return () => {
+			if (audioRef.current) {
+				audioRef.current.pause();
+			}
+		};
+	}, [currentUserLoc, voiceTourEnabled, activeAudioId, isInsideGeofence]);
+
+	// Auto-scroll sidebar, Open Marker Popup AND Clear Route when active stall changes
+	useEffect(() => {
+		// Always clear existing route when switching/closing stalls
+		setActiveRoute(null);
+		setRouteInfo(null);
+
 		if (activeStallId) {
-			// Scroll sidebar
 			const activeElement = document.getElementById(
 				`stall-card-${activeStallId}`,
 			);
@@ -199,16 +278,10 @@ export default function MapPage() {
 				activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 			}
 
-			// Open Map Popup
 			const marker = markerRefs.current[activeStallId];
 			if (marker) {
 				marker.openPopup();
 			}
-		} else {
-			setTimeout(() => {
-				setActiveRoute(null);
-				setRouteInfo(null);
-			}, 0);
 		}
 	}, [activeStallId]);
 
@@ -223,7 +296,7 @@ export default function MapPage() {
 						to='/'
 						className='cursor-pointer inline-flex items-center gap-2 text-slate-400 hover:text-orange-500 transition-colors font-black uppercase tracking-widest text-[10px] sm:text-xs mb-6 w-max relative z-10'
 					>
-						<ArrowLeft size={16} /> Trang chủ
+						<ArrowLeft size={16} /> {t('back_home')}
 					</Link>
 
 					<h2 className='text-3xl font-black flex items-center gap-3 mb-2 tracking-tighter italic uppercase relative z-10'>
@@ -231,15 +304,24 @@ export default function MapPage() {
 						VIP
 					</h2>
 					<p className='text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-6 relative z-10'>
-						Khám phá Ẩm thực Đường phố
+						{t('discover_street_food')}
 					</p>
 
 					<button
 						onClick={locateUser}
 						className='cursor-pointer w-full bg-white text-slate-900 font-extrabold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 text-sm uppercase tracking-widest'
 					>
-						<Navigation size={18} /> Vị trí của bạn
+						<Navigation size={18} /> {t('your_location')}
 					</button>
+
+					<button
+						onClick={() => setVoiceTourEnabled(!voiceTourEnabled)}
+						className={`cursor-pointer w-full mt-3 font-extrabold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 text-sm uppercase tracking-widest ${voiceTourEnabled ? 'bg-orange-500 text-white animate-pulse' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
+					>
+						{voiceTourEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+						{voiceTourEnabled ? t('voice_tour_on') : t('voice_tour_off')}
+					</button>
+
 					{geoError && (
 						<p className='text-xs text-red-400 mt-4 text-center font-medium bg-red-400/10 py-2 rounded-lg'>
 							{geoError}
@@ -257,7 +339,7 @@ export default function MapPage() {
 							/>
 							<input
 								type='text'
-								placeholder='Tìm kiếm gian hàng...'
+								placeholder={t('search_placeholder')}
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 								className='w-full bg-white border border-slate-200 py-4 pl-12 pr-4 rounded-2xl text-sm font-bold placeholder:text-slate-400 focus:outline-hidden focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all shadow-sm group-hover:shadow-md'
@@ -278,7 +360,7 @@ export default function MapPage() {
 											: 'bg-white text-slate-500 border border-slate-200 hover:border-orange-500 hover:text-orange-500 shadow-sm'
 									}`}
 								>
-									{cat === 'All' ? 'Tất cả' : cat}
+									{cat === 'All' ? t('all_categories') : cat}
 								</button>
 							))}
 						</div>
@@ -288,13 +370,16 @@ export default function MapPage() {
 						<div className='w-2 h-6 bg-orange-500 rounded-full'></div>
 						<div className='text-sm font-black text-slate-800 uppercase tracking-widest'>
 							{filteredStalls.length > 0
-								? `Gian hàng lân cận (${filteredStalls.length})`
-								: 'Không tìm thấy kết quả'}
+								? t('nearby_stalls', { count: filteredStalls.length })
+								: t('no_results')}
 						</div>
 					</div>
 					{filteredStalls.map((stall) => {
 						const isActive = activeStallId === stall.id;
 						const distanceStr = getDistanceStr(
+							stall.coordinates as [number, number],
+						);
+						const isInside = isInsideGeofence(
 							stall.coordinates as [number, number],
 						);
 						return (
@@ -305,7 +390,7 @@ export default function MapPage() {
 									setMapCenter(stall.coordinates as [number, number]);
 									setActiveStallId(stall.id);
 								}}
-								className={`p-5 rounded-[24px] shadow-sm cursor-pointer transition-all flex gap-5 pr-12 relative group ${isActive ? 'bg-orange-50 bg-opacity-50 border-2 border-orange-500 scale-[1.02]' : 'bg-white border border-slate-100 hover:border-orange-500 hover:shadow-xl'}`}
+								className={`p-5 rounded-[24px] shadow-sm cursor-pointer transition-all flex gap-5 pr-12 relative group ${isActive ? 'bg-orange-50 bg-opacity-50 border-2 border-orange-500 scale-[1.02]' : isInside ? 'bg-green-50/50 border-2 border-green-400 shadow-lg' : 'bg-white border border-slate-100 hover:border-orange-500 hover:shadow-xl'}`}
 							>
 								<div
 									className={`w-16 h-16 rounded-2xl overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform ${isActive ? 'ring-4 ring-orange-500/30' : ''}`}
@@ -318,22 +403,21 @@ export default function MapPage() {
 								</div>
 								<div className='flex-1 flex flex-col justify-center text-left'>
 									<div
-										className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-orange-600'}`}
+										className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-orange-600' : isInside ? 'text-green-600' : 'text-slate-500 group-hover:text-orange-600'}`}
 									>
-										{stall.category}
+										{stall.category} {isInside && '📍 NEARBY'}
 									</div>
 									<h4 className='font-bold text-slate-900 leading-tight text-base group-hover:text-orange-600 transition-colors uppercase italic tracking-tight'>
 										{stall.name}
 									</h4>
 									{distanceStr && (
 										<div className='flex items-center gap-1 mt-1.5 text-slate-400 text-xs font-semibold'>
-											<Navigation size={12} className='inline rotate-45' /> Cách
-											bạn {distanceStr}
+											<Navigation size={12} className='inline rotate-45' /> {t('away_from_you', { distance: distanceStr })}
 										</div>
 									)}
 								</div>
 								<div
-									className={`absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all ${isActive ? 'bg-orange-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-orange-500 group-hover:text-white'}`}
+									className={`absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all ${isActive ? 'bg-orange-500 text-white' : isInside ? 'bg-green-500 text-white animate-pulse' : 'bg-slate-50 text-slate-400 group-hover:bg-orange-500 group-hover:text-white'}`}
 								>
 									<Navigation size={18} />
 								</div>
@@ -357,15 +441,29 @@ export default function MapPage() {
 						url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 					/>
 					<MapController center={mapCenter} />
+					<MapEvents onMapClick={() => setActiveStallId(null)} />
 
-					{userLoc && (
-						<Marker position={userLoc} icon={userIcon}>
-							<Popup className='custom-popup'>
-								<div className='font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4'>
-									📍 Bạn ở đây
-								</div>
-							</Popup>
-						</Marker>
+					{currentUserLoc && (
+						<>
+							<Circle
+								center={currentUserLoc}
+								radius={GEOFENCE_RADIUS}
+								pathOptions={{
+									fillColor: mockLoc ? '#ef4444' : '#3b82f6',
+									fillOpacity: 0.1,
+									color: mockLoc ? '#ef4444' : '#3b82f6',
+									weight: 1,
+									dashArray: '5, 10',
+								}}
+							/>
+							<Marker position={currentUserLoc} icon={userIcon}>
+								<Popup className='custom-popup'>
+									<div className='font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4'>
+										{mockLoc ? 'SIMULATED GPS' : t('you_are_here')}
+									</div>
+								</Popup>
+							</Marker>
+						</>
 					)}
 
 					{activeRoute && (
@@ -378,6 +476,7 @@ export default function MapPage() {
 							lineCap='round'
 						/>
 					)}
+
 
 					{filteredStalls.map((stall) => {
 						const distanceStr = getDistanceStr(
@@ -425,16 +524,16 @@ export default function MapPage() {
 															size={14}
 															className='inline rotate-45'
 														/>{' '}
-														Vị trí cách {distanceStr}
+														{t('distance_away', { distance: distanceStr })}
 													</div>
 												)}
 											</div>
 											<div className='flex flex-col gap-3 mt-4'>
 												<div className='flex gap-2 p-1 bg-slate-100 rounded-xl'>
 													{[
-														{ id: 'car', icon: Car, label: 'Ô tô' },
-														{ id: 'bike', icon: Bike, label: 'Xe máy' },
-														{ id: 'walk', icon: Footprints, label: 'Đi bộ' },
+														{ id: 'car', icon: Car, label: t('parking_car') },
+														{ id: 'bike', icon: Bike, label: t('parking_bike') },
+														{ id: 'walk', icon: Footprints, label: t('parking_walk') },
 													].map((m) => (
 														<button
 															key={m.id}
@@ -466,9 +565,9 @@ export default function MapPage() {
 																⏱️
 															</span>
 															<span>
-																Dự kiến:{' '}
+																{t('estimated_time')}
 																<span className='text-orange-600 font-black'>
-																	{Math.ceil(routeInfo.duration / 60)} phút
+																	{Math.ceil(routeInfo.duration / 60)} {t('minutes')}
 																</span>
 															</span>
 														</div>
@@ -486,7 +585,7 @@ export default function MapPage() {
 														}}
 														className='flex-1 cursor-pointer bg-slate-900 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider py-3 rounded-xl hover:bg-orange-500 transition-all flex items-center justify-center gap-1.5'
 													>
-														<Utensils size={13} /> Menu
+														<Utensils size={13} /> {t('view_menu')}
 													</button>
 													<button
 														disabled={isRouting}
@@ -498,16 +597,14 @@ export default function MapPage() {
 																	stall.coordinates as [number, number],
 																	travelMode,
 																);
-																// Fly to user location
-																setMapCenter(userLoc);
 															} else {
-																alert('Vui lòng bật định vị để chỉ đường!');
+																alert(t('enable_geo_alert'));
 															}
 														}}
 														className={`flex-1 cursor-pointer bg-orange-500 text-white! text-[9px] sm:text-[10px] font-black uppercase tracking-wider py-3 rounded-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5 ${isRouting ? 'opacity-50 animate-pulse' : ''}`}
 													>
 														<Navigation size={13} className='rotate-45' />{' '}
-														{isRouting ? 'Đang tính...' : 'Chỉ đường'}
+														{isRouting ? t('calculating') : t('get_directions')}
 													</button>
 												</div>
 											</div>
@@ -592,7 +689,7 @@ export default function MapPage() {
 						</div>
 						<div className='p-6 flex-1 flex flex-col'>
 							<h4 className='font-black text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2 mb-4 shrink-0'>
-								<Utensils size={16} className='text-orange-500' /> Món tiêu biểu
+								<Utensils size={16} className='text-orange-500' /> {t('typical_dishes')}
 							</h4>
 							<div className='space-y-3 mb-6 shrink-0'>
 								{selectedStallForModal.menu.slice(0, 3).map((item) => (
@@ -619,11 +716,93 @@ export default function MapPage() {
 									to={`/stall/${selectedStallForModal.id}`}
 									className='cursor-pointer block text-center w-full bg-linear-to-r from-orange-500 to-red-600 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:to-red-700 transition-all active:scale-95'
 								>
-									Xem chi tiết 🚀
+									{t('view_details')}
 								</Link>
 							</div>
 						</div>
 					</div>
+				</div>
+			)}
+
+			{/* Floating Geofence Entry Alert Overlay */}
+			{currentUserLoc &&
+				filteredStalls
+					.filter((s) => isInsideGeofence(s.coordinates as [number, number]))
+					.slice(0, 1)
+					.map((stall) => (
+						<div
+							key={`alert-${stall.id}`}
+							className='absolute bottom-10 left-1/2 -translate-x-1/2 z-[4000] w-max max-w-sm px-4'
+						>
+							<div className='bg-slate-900 text-white p-4 rounded-3xl shadow-2xl flex items-center gap-4 border border-white/10 backdrop-blur-xl animate-in fade-in zoom-in duration-300'>
+								<div className='w-12 h-12 rounded-2xl overflow-hidden shrink-0 border-2 border-orange-500'>
+									<img
+										src={stall.image}
+										className='w-full h-full object-cover'
+										alt=''
+									/>
+								</div>
+								<div className='flex-1'>
+									<p className='text-[10px] font-black uppercase text-orange-400 tracking-widest mb-0.5'>
+										Nearby POI 📍
+									</p>
+									<h5 className='font-bold text-sm leading-tight'>
+										{t('geofence_alert', { name: stall.name })}
+									</h5>
+								</div>
+								<button
+									onClick={() => {
+										setActiveStallId(stall.id);
+										setMapCenter(stall.coordinates as [number, number]);
+									}}
+									className='bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all'
+								>
+									{t('geofence_hint')}
+								</button>
+							</div>
+						</div>
+					))}
+
+			{/* Debug / Test Simulation Panel */}
+			<div className='absolute top-24 right-5 z-[4000] flex flex-col gap-2'>
+				<div className='bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-200 w-48'>
+					<h6 className='text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1'>
+						{t('test_gps_title')} 🛠️
+					</h6>
+					<div className='flex flex-col gap-1.5'>
+						{stallsData.slice(0, 3).map((s) => (
+							<button
+								key={`test-${s.id}`}
+								onClick={() => {
+									setMockLoc(s.coordinates as [number, number]);
+									setMapCenter(s.coordinates as [number, number]);
+								}}
+								className='text-left text-[11px] font-bold p-2 rounded-xl hover:bg-orange-500 hover:text-white transition-all bg-slate-50 text-slate-600 line-clamp-1'
+							>
+								📍 {s.name}
+							</button>
+						))}
+						{mockLoc && (
+							<button
+								onClick={() => setMockLoc(null)}
+								className='text-[11px] font-black p-2 rounded-xl bg-slate-900 text-white hover:bg-red-500 transition-all mt-1'
+							>
+								✖ {t('test_gps_restore')}
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
+			{/* Audio Tour Status Indicator */}
+			{voiceTourEnabled && playingStallName && (
+				<div 
+					onClick={() => audioRef.current?.play()}
+					className='absolute top-24 left-1/2 -translate-x-1/2 z-[4000] bg-orange-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce cursor-pointer border-2 border-white'
+				>
+					<Volume2 size={20} className='animate-pulse' />
+					<span className='font-black text-xs uppercase tracking-widest'>
+						{playingStallName}
+					</span>
 				</div>
 			)}
 		</div>

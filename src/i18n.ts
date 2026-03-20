@@ -1,33 +1,22 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-
-// Resources
-const resources = {
-	en: {
-		translation: {
-			welcome: 'Welcome to Street Food',
-			description: 'Discover the best street food around the world.',
-			switchLang: 'Vietnamese',
-		},
-	},
-	vi: {
-		translation: {
-			welcome: 'Chào mừng đến với Street Food',
-			description: 'Khám phá những món ăn đường phố ngon nhất thế giới.',
-			switchLang: 'Tiếng Anh',
-		},
-	},
-};
+import Backend from 'i18next-http-backend';
 
 i18n
+	.use(Backend) // Load translations from /public/locales
 	.use(LanguageDetector)
 	.use(initReactI18next)
 	.init({
-		resources,
 		fallbackLng: 'en',
+		debug: false,
+		ns: ['common', 'auth', 'home', 'map', 'stall'],
+		defaultNS: 'common',
 		interpolation: {
-			escapeValue: false, // react already safes from xss
+			escapeValue: false, // React already safes from XSS
+		},
+		backend: {
+			loadPath: '/locales/{{lng}}/{{ns}}.json',
 		},
 	});
 

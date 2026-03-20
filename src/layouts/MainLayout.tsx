@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { MapIcon, ShieldAlert, StoreIcon, HomeIcon, User } from 'lucide-react';
 
 export default function MainLayout() {
-	const { t, i18n } = useTranslation();
+	const { t, i18n } = useTranslation('common');
 	const location = useLocation();
 
 	const toggleLanguage = () => {
@@ -36,13 +36,13 @@ export default function MainLayout() {
 							to='/'
 							className={`cursor-pointer flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 font-bold uppercase tracking-widest text-xs ${location.pathname === '/' ? 'bg-orange-600 text-white shadow-md scale-105' : 'text-slate-400 hover:text-white'}`}
 						>
-							<HomeIcon size={16} /> Trang chủ
+							<HomeIcon size={16} /> {t('home')}
 						</Link>
 						<Link
 							to='/map'
 							className={`cursor-pointer flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 font-bold uppercase tracking-widest text-xs ${location.pathname === '/map' ? 'bg-orange-600 text-white shadow-md scale-105' : 'text-slate-400 hover:text-white'}`}
 						>
-							<MapIcon size={16} /> Bản đồ
+							<MapIcon size={16} /> {t('map')}
 						</Link>
 					</nav>
 
@@ -52,29 +52,29 @@ export default function MainLayout() {
 								to='/vendor'
 								className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-1.5'
 							>
-								<StoreIcon size={14} /> Dành cho quán
+								<StoreIcon size={14} /> {t('for_vendor')}
 							</Link>
 							<Link
 								to='/admin'
 								className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1.5'
 							>
-								<ShieldAlert size={14} /> Admin
+								<ShieldAlert size={14} /> {t('admin')}
 							</Link>
 						</div>
 
 						<button
 							onClick={toggleLanguage}
 							className='cursor-pointer w-12 h-12 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-orange-600 transition-all font-black text-xs uppercase tracking-widest shadow-inner'
-							title={t('switchLang')}
+							title={i18n.language === 'vi' ? 'English' : 'Tiếng Việt'}
 						>
-							{i18n.language.startsWith('vi') ? 'VN' : 'EN'}
+							{t('switch_lang')}
 						</button>
 
 						<Link
 							to='/auth'
 							className='cursor-pointer flex items-center gap-2 bg-white hover:bg-orange-600 text-slate-950 hover:text-white px-6 py-3.5 rounded-full font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 group'
 						>
-							<span className='hidden sm:inline'>Đăng Nhập</span>
+							<span className='hidden sm:inline'>{t('login')}</span>
 							<User
 								size={16}
 								className='group-hover:scale-110 transition-transform'
@@ -98,8 +98,7 @@ export default function MainLayout() {
 							<span className='text-orange-500'>Street</span>Food VIP
 						</h2>
 						<p className='text-slate-400 text-sm font-bold max-w-sm mx-auto lg:mx-0'>
-							Bản đồ ăn vặt lớn nhất & xịn sò nhất khu vực dành cho giới trẻ.
-							Nơi hội tụ mọi thực thần thủ đô!
+							{t('footer_tagline')}
 						</p>
 					</div>
 
@@ -108,31 +107,31 @@ export default function MainLayout() {
 							to='/'
 							className='text-slate-300 hover:text-orange-500 transition-colors'
 						>
-							Trang Chủ
+							{t('home')}
 						</Link>
 						<Link
 							to='/map'
 							className='text-slate-300 hover:text-orange-500 transition-colors'
 						>
-							Khám Phá
+							{t('map')}
 						</Link>
 						<Link
 							to='/vendor'
 							className='text-orange-600 hover:text-orange-400 transition-colors'
 						>
-							Dành cho Quán
+							{t('for_vendor')}
 						</Link>
 						<Link
 							to='/admin'
 							className='text-red-500 hover:text-red-400 transition-colors'
 						>
-							Admin
+							{t('admin')}
 						</Link>
 					</div>
 
 					<div className='flex-1 text-center lg:text-right'>
 						<p className='text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]'>
-							© 2026 StreetFood. Design by SGU.
+							{t('copyright')}
 						</p>
 					</div>
 				</div>

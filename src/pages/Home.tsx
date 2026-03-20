@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 export default function Home() {
-	const { t } = useTranslation();
+	const { t } = useTranslation('home');
 	const [searchTerm, setSearchTerm] = useState('');
 	const [filterCategory, setFilterCategory] = useState('All');
 	const [currentPage, setCurrentPage] = useState(1);
@@ -36,10 +36,10 @@ export default function Home() {
 			{/* Hero Banner */}
 			<div className='relative w-full h-80 bg-linear-to-r from-orange-600 to-red-500 flex flex-col items-center justify-center pt-8  rounded-b-3xl shadow-xl'>
 				<h1 className='text-4xl md:text-5xl font-black text-white px-4 text-center z-10 drop-shadow-md mb-4'>
-					Phố Ẩm Thực Vĩnh Khánh
+					{t('hero_title')}
 				</h1>
 				<p className='text-white/90 text-sm md:text-lg font-medium max-w-2xl text-center px-4 z-10 drop-shadow-sm mb-6'>
-					Khám phá những món ăn đường phố tuyệt vời nhất khu vực Vĩnh Khánh.
+					{t('hero_subtitle')}
 				</p>
 
 				<div className='z-10 mb-14 relative group cursor-pointer'>
@@ -52,7 +52,7 @@ export default function Home() {
 							<span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75'></span>
 							<span className='relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white box-content'></span>
 						</div>
-						<span>Bản Đồ Live GPS Định Vị</span>
+						<span>{t('map_btn')}</span>
 						<div className='bg-orange-100 text-orange-600 rounded-full p-2 ml-1 group-hover:bg-orange-500 group-hover:text-white transition-colors shadow-inner'>
 							<MapPin size={24} className='animate-bounce' />
 						</div>
@@ -67,7 +67,7 @@ export default function Home() {
 						</div>
 						<input
 							type='text'
-							placeholder='Bạn muốn ăn món gì hôm nay?'
+							placeholder={t('search_placeholder')}
 							className='w-full py-3 px-2 outline-none text-gray-700 bg-transparent text-lg placeholder:text-gray-400 font-medium'
 							value={searchTerm}
 							onChange={(e) => {
@@ -84,7 +84,7 @@ export default function Home() {
 								}}
 								className='cursor-pointer bg-gray-100 text-gray-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 hover:text-red-500 transition-all whitespace-nowrap'
 							>
-								Xóa lọc
+								{t('clear_filter')}
 							</button>
 						)}
 					</div>
@@ -107,7 +107,7 @@ export default function Home() {
 									: 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500 border border-gray-100'
 							}`}
 						>
-							{cat === 'All' ? 'Tất cả' : cat}
+							{cat === 'All' ? t('all') : cat}
 						</button>
 					))}
 				</div>
@@ -144,13 +144,13 @@ export default function Home() {
 										to={`/map`}
 										className='flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-200 hover:text-slate-900 transition-colors'
 									>
-										<MapPin size={18} /> GPS Vị Trí
+										<MapPin size={18} /> {t('gps_pos')}
 									</Link>
 									<Link
 										to={`/stall/${stall.id}`}
 										className='flex items-center justify-center gap-2 bg-orange-100 text-orange-600 py-3 rounded-xl font-bold hover:bg-orange-500 hover:text-white transition-colors'
 									>
-										Xem Menu
+										{t('view_menu')}
 									</Link>
 								</div>
 							</div>
@@ -162,10 +162,10 @@ export default function Home() {
 								<Search size={40} className='text-gray-400' />
 							</div>
 							<p className='text-xl font-bold text-gray-700'>
-								Không tìm thấy gian hàng nào phù hợp
+								{t('no_stalls')}
 							</p>
 							<p className='mt-2 text-gray-500'>
-								Hãy thử tìm với từ khóa khác hoặc thay đổi bộ lọc
+								{t('no_stalls_hint')}
 							</p>
 							<button
 								onClick={() => {
@@ -174,7 +174,7 @@ export default function Home() {
 								}}
 								className='mt-6 px-6 py-2 bg-orange-100 text-orange-600 font-bold rounded-full hover:bg-orange-200 transition-colors'
 							>
-								Xóa bộ lọc
+								{t('clear_filter')}
 							</button>
 						</div>
 					)}

@@ -17,6 +17,7 @@ export interface Stall {
   menu: MenuItem[];
   address: string;
   operatingHours: string;
+  audioUrl?: string;
 }
 
 export const stallsData: Stall[] = [
@@ -34,7 +35,8 @@ export const stallsData: Stall[] = [
       { id: "m1", name: "Ốc Hương Trứng Muối", price: 120000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800", description: "Ốc hương to, sốt trứng muối béo ngậy" },
       { id: "m2", name: "Càng Ghẹ Rang Muối", price: 150000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800", description: "Càng ghẹ tươi ngon, vị muối ớt đậm đà" },
       { id: "m3", name: "Ốc Len Xào Dừa", price: 80000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800", description: "Ốc xào nước cốt dừa thơm nức" }
-    ]
+    ],
+    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
   },
   {
     id: "2",
@@ -49,7 +51,8 @@ export const stallsData: Stall[] = [
     menu: [
       { id: "m4", name: "Ốc Tỏi Nướng Mỡ Hành", price: 110000, image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800" },
       { id: "m5", name: "Sò Dương Nướng Phô Mai", price: 95000, image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
   },
   {
     id: "3",

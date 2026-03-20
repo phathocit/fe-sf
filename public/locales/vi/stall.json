@@ -1,0 +1,13 @@
+{
+  "not_found": "Không tìm thấy gian hàng này, có thể quán đã dời đi hoặc đóng cửa.",
+  "error_404": "Oops! Lỗi 404",
+  "back_home": "Quay lại Trang Chủ",
+  "opening_hours": "Mở cửa: {{hours}}",
+  "map_btn": "BẢN ĐỒ",
+  "map_subtitle": "Định vị quán",
+  "rating_title": "Đánh giá chung",
+  "description_title": "Giới thiệu",
+  "menu_title": "Thực Đơn",
+  "menu_count": "{{count}} món",
+  "currency": "VNĐ"
+}

@@ -1,0 +1,12 @@
+{
+  "hero_title": "Vinh Khanh Food Street",
+  "hero_subtitle": "Discover the best street food in Vinh Khanh area.",
+  "map_btn": "Live GPS Map Tracking",
+  "search_placeholder": "What do you want to eat today?",
+  "clear_filter": "Clear Filter",
+  "all": "All",
+  "gps_pos": "GPS Position",
+  "view_menu": "View Menu",
+  "no_stalls": "No matching stalls found",
+  "no_stalls_hint": "Try searching with different keywords or change filters"
+}
