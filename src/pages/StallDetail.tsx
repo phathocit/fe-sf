@@ -82,7 +82,7 @@ export default function StallDetail() {
 						</div>
 						<div className='flex flex-col sm:flex-row items-stretch gap-3 mt-4 md:mt-0 w-full md:w-auto h-full'>
 							<Link
-								to={`/map`}
+								to={`/map?stallId=${stall.id}`}
 								className='cursor-pointer bg-linear-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg shadow-orange-500/30 px-5 py-4 rounded-2xl flex items-center justify-center sm:justify-start gap-3 transition-all active:scale-95 border border-orange-400/50 group flex-1'
 							>
 								<div className='w-12 h-12 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0'>

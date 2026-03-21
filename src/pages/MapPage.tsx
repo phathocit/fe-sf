@@ -27,7 +27,7 @@ import {
 	Volume2,
 	VolumeX,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 // Custom User Icon
 const userIcon = L.divIcon({
@@ -74,6 +74,7 @@ function MapEvents({ onMapClick }: { onMapClick: () => void }) {
 
 export default function MapPage() {
 	const { t } = useTranslation('map');
+	const [searchParams] = useSearchParams();
 	const defaultCenter: [number, number] = [10.7601, 106.7042]; // Center of Vĩnh Khánh, District 4
 	const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
 	const [geoError, setGeoError] = useState('');
@@ -218,6 +219,18 @@ export default function MapPage() {
 			isMounted = false;
 		};
 	}, [t]);
+
+	// Handle initial activation from URL query if present (from Home GPS button)
+	useEffect(() => {
+		const stallIdFromQuery = searchParams.get('stallId');
+		if (stallIdFromQuery) {
+			const targetStall = stallsData.find((s) => s.id === stallIdFromQuery);
+			if (targetStall) {
+				setMapCenter(targetStall.coordinates as [number, number]);
+				setActiveStallId(targetStall.id);
+			}
+		}
+	}, [searchParams]);
 
 	// Audio Tour Logic
 	useEffect(() => {

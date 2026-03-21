@@ -141,7 +141,7 @@ export default function Home() {
 								</p>
 								<div className='grid grid-cols-2 gap-3 mt-auto pt-4 border-t border-gray-100'>
 									<Link
-										to={`/map`}
+										to={`/map?stallId=${stall.id}`}
 										className='flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-200 hover:text-slate-900 transition-colors'
 									>
 										<MapPin size={18} /> {t('gps_pos')}

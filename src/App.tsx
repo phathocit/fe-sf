@@ -14,13 +14,13 @@ function App() {
         {/* Standalone Pages without Global Navbar */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/vendor" element={<VendorDashboard />} />
 
         {/* Public Routes with Navbar */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="stall/:id" element={<StallDetail />} />
-          <Route path="admin" element={<AdminDashboard />} />
-          <Route path="vendor" element={<VendorDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>
