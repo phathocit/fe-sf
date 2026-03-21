@@ -51,7 +51,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
        {/* Admin Sidebar */}
        <div className="w-72 bg-slate-950 text-white flex flex-col py-8 px-6 shadow-2xl z-20">
           <div className="mb-10">
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
        {/* Modal CRUD */}
        {isModalOpen && currentStall && (
          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"></div>
             <div className="relative bg-white w-full max-w-2xl rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                <div className="p-8 border-b border-slate-100 flex justify-between items-center">
                   <h2 className="text-2xl font-black italic uppercase tracking-tight">

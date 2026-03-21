@@ -151,14 +151,24 @@ export default function MapPage() {
 					c[0],
 				]);
 
-				// Traffic & Base Time adjustment for District 4, HCMC
-				let duration = route.duration; // seconds
+				// Real-world Time estimation for District 4, HCMC
+				// Based on local experience: Cars ~15km/h, Motorbikes ~25km/h, Walking ~4.5km/h
+				const distance = route.distance; // meters
+				const overheadScale = Math.min(1.0, distance / 1000); // Scale overhead for distances < 1km
+				let duration;
+
 				if (mode === 'car') {
-					duration = duration * 1.5 + 300; // 1.5x traffic + 5 mins parking
+					// 15km/h is ~4.1 m/s. 
+					// Plus 3 min overhead (parking/getting in/out) scaled by distance
+					duration = (distance / 4.1) + (180 * overheadScale);
 				} else if (mode === 'bike') {
-					duration = duration * 1.1 + 180; // 1.1x traffic + 3 mins parking
-				} else if (mode === 'walk') {
-					duration = duration * 1.05; // walking speed is stable
+					// 25km/h is ~6.9 m/s. 
+					// Plus 1 min overhead (parking) scaled by distance
+					duration = (distance / 6.9) + (60 * overheadScale);
+				} else {
+					// 4.5km/h is ~1.25 m/s. 
+					// 30s buffer (waiting for street crossing)
+					duration = (distance / 1.25) + (30 * overheadScale);
 				}
 
 				setActiveRoute(coords);
