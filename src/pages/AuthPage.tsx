@@ -7,26 +7,82 @@ import {
 	Lock,
 	User,
 	Store,
-	Phone,
 	ShieldCheck,
+	Loader2,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
+import authApi from '../api/authApi';
+import { useAuth } from '../context/AuthContext';
 
 export default function AuthPage() {
 	const { t } = useTranslation('auth');
+	const { login } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const navigate = useNavigate();
 
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		if (isLogin) {
-			const email = (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
-			if (email.includes('admin')) {
-				navigate('/admin');
+		setIsLoading(true);
+		setError(null);
+
+		const formData = new FormData(e.currentTarget);
+		const email = formData.get('email') as string;
+		const password = formData.get('password') as string;
+
+		try {
+			if (isLogin) {
+				const response = await authApi.loginEmail({ email, password });
+				if (response.code === 0) {
+					login(response.result.token, response.result.account);
+
+					const isAdmin = response.result.account.roles.some(
+						(role) => role.name === 'ADMIN',
+					);
+					if (isAdmin) {
+						navigate('/admin');
+					} else {
+						navigate('/vendor');
+					}
+				}
 			} else {
-				navigate('/vendor');
+				const ownerName = formData.get('ownerName') as string;
+				const stallName = formData.get('stallName') as string;
+
+				await authApi.registerVendor({
+					ownerName,
+					stallName,
+					email,
+					password,
+				});
+				toast.success(
+					'Đăng ký thành công! Vui lòng đợi Admin phê duyệt gian hàng.',
+					{
+						icon: <span>⏳</span>,
+					},
+				);
+				setIsLogin(true);
+				setError(null);
 			}
-		} else {
-			navigate('/vendor');
+		} catch (err: unknown) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const errorObj = err as any;
+			const status = errorObj.response?.status;
+			const code = errorObj.response?.data?.code;
+			const message =
+				errorObj.response?.data?.message || (err as Error).message;
+
+			if (code === 3003 || status === 403) {
+				toast.error(message, {
+					icon: <span>🔒</span>,
+				});
+				setError(null);
+			} else {
+				setError(message || 'An error occurred. Please try again.');
+			}
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -52,7 +108,9 @@ export default function AuthPage() {
 					<h2 className='text-5xl font-black italic uppercase tracking-tighter mb-6 leading-tight'>
 						{t('hero_title').split(' ').slice(0, 3).join(' ')} <br />
 						{t('hero_title').split(' ').slice(3, 5).join(' ')}{' '}
-						<span className='text-orange-500 text-6xl block'>{t('hero_title').split(' ').slice(5).join(' ')}</span>
+						<span className='text-orange-500 text-6xl block'>
+							{t('hero_title').split(' ').slice(5).join(' ')}
+						</span>
 					</h2>
 					<p className='text-slate-300 font-bold text-lg mb-8 leading-relaxed'>
 						{t('hero_description')}
@@ -96,9 +154,7 @@ export default function AuthPage() {
 								{isLogin ? t('login_title') : t('register_title')}
 							</h1>
 							<p className='text-slate-400 font-bold text-sm'>
-								{isLogin
-									? t('login_description')
-									: t('register_description')}
+								{isLogin ? t('login_description') : t('register_description')}
 							</p>
 						</div>
 
@@ -118,42 +174,29 @@ export default function AuthPage() {
 						</div>
 
 						<form className='space-y-4' onSubmit={handleSubmit}>
+							{error && (
+								<div className='bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200'>
+									{error}
+								</div>
+							)}
 							{!isLogin && (
 								<>
-									<div className='grid grid-cols-2 gap-4'>
-										<div className='space-y-1.5'>
-											<label className='text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2'>
-												{t('label_owner_name')}
-											</label>
-											<div className='relative'>
-												<User
-													className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500'
-													size={18}
-												/>
-												<input
-													type='text'
-													placeholder={t('placeholder_owner_name')}
-													className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-sm'
-													required
-												/>
-											</div>
-										</div>
-										<div className='space-y-1.5'>
-											<label className='text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2'>
-												{t('label_phone')}
-											</label>
-											<div className='relative'>
-												<Phone
-													className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500'
-													size={18}
-												/>
-												<input
-													type='tel'
-													placeholder={t('placeholder_phone')}
-													className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-sm'
-													required
-												/>
-											</div>
+									<div className='space-y-1.5'>
+										<label className='text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2'>
+											{t('label_owner_name')}
+										</label>
+										<div className='relative'>
+											<User
+												className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500'
+												size={18}
+											/>
+											<input
+												name='ownerName'
+												type='text'
+												placeholder={t('placeholder_owner_name')}
+												className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-sm'
+												required
+											/>
 										</div>
 									</div>
 									<div className='space-y-1.5'>
@@ -166,6 +209,7 @@ export default function AuthPage() {
 												size={18}
 											/>
 											<input
+												name='stallName'
 												type='text'
 												placeholder={t('placeholder_stall_name')}
 												className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-sm'
@@ -187,10 +231,10 @@ export default function AuthPage() {
 									/>
 									<input
 										name='email'
-										type='email'
+										type='text'
 										placeholder={t('placeholder_email')}
 										className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-sm'
-										required
+										// required
 									/>
 								</div>
 							</div>
@@ -215,6 +259,7 @@ export default function AuthPage() {
 										size={18}
 									/>
 									<input
+										name='password'
 										type='password'
 										placeholder={t('placeholder_password')}
 										className='w-full bg-slate-900 border-2 border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl outline-none focus:border-orange-500 focus:bg-slate-800 transition-all font-bold placeholder:text-slate-600 text-lg tracking-widest'
@@ -225,9 +270,16 @@ export default function AuthPage() {
 
 							<button
 								type='submit'
-								className='cursor-pointer w-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all active:translate-y-0 mt-3'
+								disabled={isLoading}
+								className='cursor-pointer w-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all active:translate-y-0 mt-3 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0'
 							>
-								{isLogin ? t('btn_login') : t('btn_register')}
+								{isLoading ? (
+									<Loader2 size={18} className='animate-spin' />
+								) : isLogin ? (
+									t('btn_login')
+								) : (
+									t('btn_register')
+								)}
 							</button>
 						</form>
 					</div>

@@ -18,6 +18,7 @@ export interface Stall {
   address: string;
   operatingHours: string;
   audioUrl?: string;
+  isActive: boolean;
 }
 
 export const stallsData: Stall[] = [
@@ -36,7 +37,8 @@ export const stallsData: Stall[] = [
       { id: "m2", name: "Càng Ghẹ Rang Muối", price: 150000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800", description: "Càng ghẹ tươi ngon, vị muối ớt đậm đà" },
       { id: "m3", name: "Ốc Len Xào Dừa", price: 80000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800", description: "Ốc xào nước cốt dừa thơm nức" }
     ],
-    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    isActive: true
   },
   {
     id: "2",
@@ -52,7 +54,8 @@ export const stallsData: Stall[] = [
       { id: "m4", name: "Ốc Tỏi Nướng Mỡ Hành", price: 110000, image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800" },
       { id: "m5", name: "Sò Dương Nướng Phô Mai", price: 95000, image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800" }
     ],
-    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    isActive: true
   },
   {
     id: "3",
@@ -67,7 +70,8 @@ export const stallsData: Stall[] = [
     menu: [
       { id: "m6", name: "Súp Cua Thập Cẩm", price: 35000, image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&q=80&w=800" },
       { id: "m7", name: "Súp Óc Heo Trứng Bắc Thảo", price: 45000, image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
   },
   {
     id: "4",
@@ -78,11 +82,12 @@ export const stallsData: Stall[] = [
     address: "243/29G Tôn Đản (Gần Vĩnh Khánh), Quận 4, TP.HCM",
     operatingHours: "10:00 - 21:00",
     image: "https://images.unsplash.com/photo-1627344933560-c44d7f57fb40?auto=format&fit=crop&q=80&w=800",
-    description: "Quán phá lấu bò huyền thoại với nước dùng béo ngậy, ăn kèm bánh mì giòn.",
+    description: "Quán phá lấu bò huyền thoại with nước dùng béo ngậy, ăn kèm bánh mì giòn.",
     menu: [
       { id: "m8", name: "Phá Lấu Bò Chén", price: 30000, image: "https://images.unsplash.com/photo-1627344933560-c44d7f57fb40?auto=format&fit=crop&q=80&w=800" },
       { id: "m9", name: "Phá Lấu Mì Gói", price: 35000, image: "https://images.unsplash.com/photo-1627344933560-c44d7f57fb40?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
   },
   {
     id: "5",
@@ -97,7 +102,8 @@ export const stallsData: Stall[] = [
     menu: [
       { id: "m10", name: "Bún Mắm Đặc Biệt", price: 65000, image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=800" },
       { id: "m11", name: "Lẩu Mắm 2 Người", price: 250000, image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
   },
   {
     id: "6",
@@ -111,7 +117,8 @@ export const stallsData: Stall[] = [
     description: "Chè thái sầu riêng và trà sữa nhà làm thơm mát.",
     menu: [
       { id: "m12", name: "Chè Thái Sầu Riêng", price: 30000, image: "https://images.unsplash.com/photo-1563805042-7684c8e9e533?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
   },
   {
     id: "7",
@@ -125,7 +132,8 @@ export const stallsData: Stall[] = [
     description: "Chuyên lẩu dê và các món nướng tại bàn, không gian rộng rãi.",
     menu: [
       { id: "m13", name: "Lẩu Dê Nhỏ", price: 180000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
   },
   {
     id: "8",
@@ -139,6 +147,38 @@ export const stallsData: Stall[] = [
     description: "Bánh tráng cuốn bơ và hành phi cực kỳ hấp dẫn du khách.",
     menu: [
       { id: "m14", name: "Bánh Tráng Cuốn Bơ", price: 20000, image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=800" }
-    ]
+    ],
+    isActive: true
+  }
+];
+
+export interface PendingVendor {
+  id: string;
+  ownerName: string;
+  phone: string;
+  stallName: string;
+  email: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+}
+
+export const pendingVendorsData: PendingVendor[] = [
+  {
+    id: "PV1",
+    ownerName: "Nguyễn Văn A",
+    phone: "0901234567",
+    stallName: "Bánh Mì Sài Gòn",
+    email: "vana@example.com",
+    status: 'PENDING',
+    createdAt: "2024-03-25T10:00:00Z"
+  },
+  {
+    id: "PV2",
+    ownerName: "Trần Thị B",
+    phone: "0912345678",
+    stallName: "Bún Chả Hà Nội",
+    email: "thib@example.com",
+    status: 'PENDING',
+    createdAt: "2024-03-26T14:30:00Z"
   }
 ];

@@ -1,14 +1,19 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapIcon, ShieldAlert, StoreIcon, HomeIcon, User } from 'lucide-react';
+import { MapIcon, ShieldAlert, StoreIcon, HomeIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function MainLayout() {
 	const { t, i18n } = useTranslation('common');
+	const { user, isAuthenticated, logout } = useAuth();
 	const location = useLocation();
 
 	const toggleLanguage = () => {
 		i18n.changeLanguage(i18n.language.startsWith('en') ? 'vi' : 'en');
 	};
+
+	const isAdmin = user?.roles?.some((r) => r.name === 'ADMIN');
+	const isVendor = user?.roles?.some((r) => r.name === 'VENDOR');
 
 	return (
 		<div className='min-h-screen bg-gray-50 flex flex-col font-sans'>
@@ -48,19 +53,37 @@ export default function MainLayout() {
 
 					<div className='flex items-center gap-4'>
 						<div className='hidden lg:flex items-center gap-4 mr-4'>
-							<Link
-								to='/vendor'
-								className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-1.5'
-							>
-								<StoreIcon size={14} /> {t('for_vendor')}
-							</Link>
-							<Link
-								to='/admin'
-								className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1.5'
-							>
-								<ShieldAlert size={14} /> {t('admin')}
-							</Link>
+							{isVendor && (
+								<Link
+									to='/vendor'
+									className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-1.5'
+								>
+									<StoreIcon size={14} /> {t('for_vendor')}
+								</Link>
+							)}
+							{isAdmin && (
+								<Link
+									to='/admin'
+									className='cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1.5'
+								>
+									<ShieldAlert size={14} /> {t('admin')}
+								</Link>
+							)}
 						</div>
+
+						{isAuthenticated && (
+							<div className='flex items-center gap-2'>
+								<div className='w-10 h-10 rounded-full bg-linear-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-black text-xs shadow-lg'>
+									{user?.fullName?.charAt(0) || 'U'}
+								</div>
+								<button
+									onClick={logout}
+									className='text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors cursor-pointer'
+								>
+									Logout
+								</button>
+							</div>
+						)}
 
 						<button
 							onClick={toggleLanguage}
@@ -69,17 +92,6 @@ export default function MainLayout() {
 						>
 							{t('switch_lang')}
 						</button>
-
-						<Link
-							to='/auth'
-							className='cursor-pointer flex items-center gap-2 bg-white hover:bg-orange-600 text-slate-950 hover:text-white px-6 py-3.5 rounded-full font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 group'
-						>
-							<span className='hidden sm:inline'>{t('login')}</span>
-							<User
-								size={16}
-								className='group-hover:scale-110 transition-transform'
-							/>
-						</Link>
 					</div>
 				</div>
 			</header>

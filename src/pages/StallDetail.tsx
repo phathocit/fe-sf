@@ -1,12 +1,57 @@
 import { useParams, Link } from 'react-router-dom';
-import { stallsData } from '../data/mockData';
-import { MapPin, Star, ChevronLeft, ImageOff, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import stallApi from '../api/stallApi';
+import foodApi from '../api/foodApi';
+import type { Stall } from '../types/stall.types';
+import type { Food } from '../types/food.types';
+import { MapPin, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function StallDetail() {
 	const { t } = useTranslation('stall');
 	const { id } = useParams();
-	const stall = stallsData.find((s) => s.id === id);
+	const [stall, setStall] = useState<Stall | null>(null);
+	const [foods, setFoods] = useState<Food[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 9;
+
+	const totalPages = Math.ceil(foods.length / itemsPerPage);
+	const currentFoods = foods.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage,
+	);
+
+	useEffect(() => {
+		const fetchData = async () => {
+			if (!id) return;
+			try {
+				const [stallRes, foodsRes] = await Promise.all([
+					stallApi.getById(Number(id)),
+					foodApi.getByStallId(Number(id)),
+				]);
+				setStall(stallRes.result);
+				setFoods(foodsRes.result.filter((item: Food) => item.isAvailable));
+			} catch (error) {
+				console.error('Error fetching stall details:', error);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchData();
+	}, [id]);
+
+	if (loading) {
+		return (
+			<div className='min-h-screen flex flex-col items-center justify-center bg-slate-50'>
+				<div className='w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4'></div>
+				<p className='text-gray-500 font-medium animate-pulse'>
+					Đang tải thông tin quán ăn...
+				</p>
+			</div>
+		);
+	}
 
 	if (!stall) {
 		return (
@@ -37,17 +82,20 @@ export default function StallDetail() {
 			{/* Hero Header */}
 			<div className='relative w-full h-80 sm:h-96 md:h-100'>
 				<img
-					src={stall.image}
+					src={
+						stall.image ||
+						'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800'
+					}
 					alt={stall.name}
 					className='w-full h-full object-cover'
 				/>
 				<div className='absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/40 to-transparent'></div>
 
-				{/* Nút Back To Home nổi bần bật */}
+				{/* Nút Back To Home */}
 				<div className='absolute top-6 left-6 md:top-10 md:left-10 z-20'>
 					<Link
 						to='/'
-						className='cursor-pointer inline-flex items-center gap-2 bg-white text-slate-900 font-black text-xs uppercase tracking-widest px-6 py-3.5 rounded-full shadow-[0_10px_40px_-5px_rgba(0,0,0,0.5)] border border-white/50 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all active:scale-95 group'
+						className='cursor-pointer inline-flex items-center gap-2 bg-white text-slate-900 font-black text-xs uppercase tracking-widest px-6 py-3.5 rounded-full shadow-2xl border border-white/50 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all active:scale-95 group'
 					>
 						<ChevronLeft
 							size={18}
@@ -72,11 +120,7 @@ export default function StallDetail() {
 										size={16}
 										className='text-orange-400 shrink-0 mt-0.5 sm:mt-0'
 									/>{' '}
-									{stall.address}
-								</p>
-								<p className='text-white/90 text-sm md:text-base font-medium max-w-2xl flex items-center gap-2 m-0 bg-black/20 w-fit px-3 py-1.5 rounded-full backdrop-blur-sm'>
-									<Clock size={16} className='text-yellow-400 shrink-0' />{' '}
-									{t('opening_hours', { hours: stall.operatingHours })}
+									Phố ẩm thực Vĩnh Khánh, Quận 4, TP.HCM
 								</p>
 							</div>
 						</div>
@@ -97,20 +141,6 @@ export default function StallDetail() {
 									</div>
 								</div>
 							</Link>
-
-							<div className='bg-white/10 backdrop-blur-xl border border-white/20 px-5 py-4 rounded-2xl flex items-center justify-center sm:justify-start gap-3 text-white flex-1'>
-								<div className='w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center shrink-0'>
-									<Star size={24} fill='currentColor' />
-								</div>
-								<div className='text-left flex flex-col justify-center'>
-									<div className='text-3xl font-black leading-none'>
-										{stall.rating}
-									</div>
-									<div className='text-white/60 text-[10px] sm:text-xs font-medium uppercase mt-1'>
-										{t('rating_title')}
-									</div>
-								</div>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -123,19 +153,20 @@ export default function StallDetail() {
 						{t('description_title')}
 					</h3>
 					<p className='text-gray-600 leading-relaxed text-lg'>
-						{stall.description}
+						{stall.description ||
+							`Quán ăn hấp dẫn nhất khu phố ẩm thực, chuyên cung cấp các món ăn ngon từ ${stall.category}. Hãy đến và trải nghiệm ngay với chất lượng dịch vụ tuyệt vời và không gian thoáng mát!`}
 					</p>
 				</div>
 
 				<h3 className='text-3xl font-black text-gray-900 mb-8 flex items-center gap-3'>
 					{t('menu_title')}
 					<span className='bg-orange-100 text-orange-600 text-sm font-bold px-3 py-1 rounded-full'>
-						{t('menu_count', { count: stall.menu.length })}
+						{t('menu_count', { count: foods.length })}
 					</span>
 				</h3>
 
 				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-					{stall.menu.map((item) => (
+					{currentFoods.map((item) => (
 						<div
 							key={item.id}
 							className='bg-white rounded-2xl flex overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-200 transition-all duration-300 group'
@@ -171,7 +202,41 @@ export default function StallDetail() {
 							</div>
 						</div>
 					))}
+					{foods.length === 0 && (
+						<div className='col-span-full py-10 text-center text-gray-500 italic'>
+							Hiện chưa có món ăn nào trong thực đơn.
+						</div>
+					)}
 				</div>
+
+				{/* Pagination Controls */}
+				{totalPages > 1 && (
+					<div className='flex justify-center items-center gap-4 mt-12'>
+						<button
+							onClick={() => {
+								setCurrentPage((prev) => Math.max(prev - 1, 1));
+								window.scrollTo({ top: 400, behavior: 'smooth' });
+							}}
+							disabled={currentPage === 1}
+							className='cursor-pointer p-4 rounded-2xl bg-white border-2 border-slate-100 text-slate-500 hover:bg-orange-50 hover:text-orange-500 hover:border-orange-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm'
+						>
+							<ChevronLeft size={24} />
+						</button>
+						<span className='font-black text-slate-700 bg-white px-6 py-4 rounded-2xl shadow-sm border-2 border-slate-100'>
+							{currentPage} / {totalPages}
+						</span>
+						<button
+							onClick={() => {
+								setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+								window.scrollTo({ top: 400, behavior: 'smooth' });
+							}}
+							disabled={currentPage === totalPages}
+							className='cursor-pointer p-4 rounded-2xl bg-white border-2 border-slate-100 text-slate-500 hover:bg-orange-50 hover:text-orange-500 hover:border-orange-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm'
+						>
+							<ChevronRight size={24} />
+						</button>
+					</div>
+				)}
 			</div>
 		</div>
 	);

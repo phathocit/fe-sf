@@ -1,35 +1,42 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://api.example.com',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000,
+	baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+	headers: {
+		'Content-Type': 'application/json',
+	},
+	timeout: 10000,
 });
 
 // Request interceptor
 axiosClient.interceptors.request.use(
-  (config) => {
-    // Modify request config config here (e.g. add authorization token)
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
+	(config) => {
+		const token = localStorage.getItem('token');
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	},
 );
 
 // Response interceptor
 axiosClient.interceptors.response.use(
-  (response) => {
-    // Process response data here
-    return response.data;
-  },
-  (error) => {
-    // Globally handle errors here
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
-  }
+	(response) => {
+		return response.data;
+	},
+	(error) => {
+		if (error.response?.status === 401) {
+			localStorage.removeItem('token');
+		}
+		// Globally handle errors here
+		const message = error.response?.data?.message || error.message;
+		const code = error.response?.data?.code;
+		console.error('API Error:', message, 'Error Code: ', code);
+		return Promise.reject({ ...error, message });
+	},
 );
 
 export default axiosClient;

@@ -27,7 +27,9 @@
   "geofence_radius_label": "Bán kính: {{radius}}m",
   "test_gps_title": "Giả lập vị trí GPS",
   "test_gps_restore": "Khôi phục GPS thật",
-	"voice_tour_on": "Thuyết minh: Đang Bật 🔈",
-	"voice_tour_off": "Thuyết minh: Đang Tắt 🔇",
-  "test_gps_teleport": "Tới quán {{name}}"
+	"voice_tour_on": "Bật thuyết minh",
+	"voice_tour_off": "Tắt thuyết minh",
+	"listen_tour": "Nghe",
+	"stop_tour": "Dừng",
+	"test_gps_teleport": "Tới quán {{name}}"
 }

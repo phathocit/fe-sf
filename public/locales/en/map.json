@@ -27,7 +27,9 @@
   "geofence_radius_label": "Radius: {{radius}}m",
   "test_gps_title": "Simulate GPS",
   "test_gps_restore": "Restore real GPS",
-  "voice_tour_on": "Voice Tour: ON 🔈",
-  "voice_tour_off": "Voice Tour: OFF 🔇",
+  "voice_tour_on": "Voice Tour: ON",
+  "voice_tour_off": "Voice Tour: OFF",
+  "listen_tour": "Play",
+  "stop_tour": "Stop",
   "test_gps_teleport": "Go to {{name}}"
 }

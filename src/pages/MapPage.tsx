@@ -1,35 +1,22 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import {
-	MapContainer,
-	TileLayer,
-	Marker,
-	Popup,
-	useMap,
-	useMapEvents,
-	Polyline,
-	Circle,
-} from 'react-leaflet';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
-import { stallsData, type Stall } from '../data/mockData';
+import { useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
-import {
-	Navigation,
-	MapPin,
-	ArrowLeft,
-	X,
-	Utensils,
-	Car,
-	Bike,
-	Footprints,
-	Search,
-	Filter,
-	Volume2,
-	VolumeX,
-} from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Loader2, Menu, X } from 'lucide-react';
 
-// Custom User Icon
+import stallApi from '../api/stallApi';
+import foodApi from '../api/foodApi';
+import type { Stall } from '../types/stall.types';
+import type { Food } from '../types/food.types';
+
+// Components
+import MapSidebar from '../components/map/MapSidebar';
+import MapContent from '../components/map/MapContent';
+import MenuModal from '../components/map/MenuModal';
+import MapOverlay from '../components/map/MapOverlay';
+
+// Icons
 const userIcon = L.divIcon({
 	html: `<div class="w-6 h-6 bg-blue-600 border-2 border-white rounded-full shadow-2xl pulse-animation"></div>`,
 	className: 'user-marker',
@@ -37,13 +24,12 @@ const userIcon = L.divIcon({
 	iconAnchor: [12, 12],
 });
 
-// Shop Icon generator
 const createStallIcon = (stall: Stall, isActive: boolean = false) => {
 	return L.divIcon({
 		html: `
       <div class="relative">
-        <div class="w-12 h-12 rounded-2xl bg-white shadow-[0_10px_20px_rgba(0,0,0,0.15)] ${isActive ? 'border-[3px] border-orange-600 scale-125' : 'border-2 border-orange-400/50'} p-1 transition-all duration-300 hover:scale-125 overflow-hidden flex items-center justify-center relative z-10">
-          <img src="${stall.image}" class="w-full h-full object-cover rounded-xl" />
+        <div class="w-12 h-12 rounded-2xl bg-white shadow-[0_10px_20px_rgba(0,0,0,0.15)] ${isActive ? 'border-[3px] border-orange-600 scale-125' : 'border-2 border-orange-400/50'} transition-all duration-300 hover:scale-125 overflow-hidden flex items-center justify-center relative z-10">
+          <img src="${stall.image || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800'}" class="flex-1 w-full h-full object-cover rounded-xl" />
         </div>
         ${isActive ? `<div class="absolute -top-2 -right-2 w-6 h-6 bg-orange-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-lg animate-bounce z-20 font-black text-[10px]">📍</div>` : ''}
       </div>
@@ -55,138 +41,87 @@ const createStallIcon = (stall: Stall, isActive: boolean = false) => {
 	});
 };
 
-function MapController({ center }: { center: [number, number] }) {
-	const map = useMap();
-	useEffect(() => {
-		map.flyTo(center, 17, { animate: true, duration: 1.5 });
-	}, [center, map]);
-	return null;
-}
-
-function MapEvents({ onMapClick }: { onMapClick: () => void }) {
-	useMapEvents({
-		click: () => {
-			onMapClick();
-		},
-	});
-	return null;
-}
-
 export default function MapPage() {
 	const { t } = useTranslation('map');
 	const [searchParams] = useSearchParams();
-	const defaultCenter: [number, number] = [10.7601, 106.7042]; // Center of Vĩnh Khánh, District 4
+	const defaultCenter: [number, number] = [10.7601, 106.7042];
+
+	// States
+	const [stalls, setStalls] = useState<Stall[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
-	const [geoError, setGeoError] = useState('');
 	const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
-	const [activeStallId, setActiveStallId] = useState<string | null>(null);
-	const [selectedStallForModal, setSelectedStallForModal] =
-		useState<Stall | null>(null);
-	const [activeRoute, setActiveRoute] = useState<[number, number][] | null>(
-		null,
-	);
-	const [travelMode, setTravelMode] = useState<'car' | 'bike' | 'walk'>('bike');
-	const [routeInfo, setRouteInfo] = useState<{
-		distance: number;
-		duration: number;
-	} | null>(null);
-	const [isRouting, setIsRouting] = useState(false);
+	const [activeStallId, setActiveStallId] = useState<number | null>(null);
+	const [activeAudioId, setActiveAudioId] = useState<number | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [selectedCategory, setSelectedCategory] = useState<string>('All');
+	const [selectedStallForModal, setSelectedStallForModal] =
+		useState<Stall | null>(null);
+	const [modalMenu, setModalMenu] = useState<Food[]>([]);
+	const [modalLoading, setModalLoading] = useState(false);
+	const [geoError, setGeoError] = useState('');
+	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
 	const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
-	const GEOFENCE_RADIUS = 25; // 25 meters
-	const [mockLoc, setMockLoc] = useState<[number, number] | null>(null);
-	const [voiceTourEnabled, setVoiceTourEnabled] = useState(false);
-	const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
-	const [playingStallName, setPlayingStallName] = useState<string | null>(null);
-	const audioRef = useRef<HTMLAudioElement | null>(null);
+	const geofenceRadius = 25;
+	const voiceTourEnabled = true;
 
-	const currentUserLoc = mockLoc || userLoc;
+	// Fetch Data
+	useEffect(() => {
+		const fetchStalls = async () => {
+			try {
+				const response = await stallApi.getAllActive();
+				setStalls(response.result);
+			} catch (error) {
+				console.error('Error fetching stalls:', error);
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchStalls();
+	}, []);
 
-	const categories = ['All', ...new Set(stallsData.map((s) => s.category))];
+	// Search & Filter Memo
+	const categories = useMemo(
+		() => ['All', ...new Set(stalls.map((s) => s.category))],
+		[stalls],
+	);
+	const filteredStalls = useMemo(() => {
+		return stalls.filter((stall) => {
+			const matchesSearch = stall.name
+				.toLowerCase()
+				.includes(searchQuery.toLowerCase());
+			const matchesCategory =
+				selectedCategory === 'All' || stall.category === selectedCategory;
+			return matchesSearch && matchesCategory;
+		});
+	}, [stalls, searchQuery, selectedCategory]);
 
-	const filteredStalls = stallsData.filter((stall) => {
-		const matchesSearch = stall.name
-			.toLowerCase()
-			.includes(searchQuery.toLowerCase());
-		const matchesCategory =
-			selectedCategory === 'All' || stall.category === selectedCategory;
-		return matchesSearch && matchesCategory;
-	});
+	// Helpers
+	const getCoords = useCallback((stall: Stall): [number, number] => {
+		return [Number(stall.latitude), Number(stall.longitude)];
+	}, []);
 
-	const getDistanceStr = (coords: [number, number]) => {
-		if (!currentUserLoc) return '';
-		const d = L.latLng(currentUserLoc).distanceTo(L.latLng(coords));
-		return d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
-	};
+	const getDistanceStr = useCallback(
+		(coords: [number, number]) => {
+			if (!userLoc) return '';
+			const d = L.latLng(userLoc).distanceTo(L.latLng(coords));
+			return d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
+		},
+		[userLoc],
+	);
 
 	const isInsideGeofence = useCallback(
 		(coords: [number, number]) => {
-			if (!currentUserLoc) return false;
-			const distance = L.latLng(currentUserLoc).distanceTo(L.latLng(coords));
-			return distance <= GEOFENCE_RADIUS;
+			if (!userLoc) return false;
+			const distance = L.latLng(userLoc).distanceTo(L.latLng(coords));
+			return distance <= geofenceRadius;
 		},
-		[currentUserLoc],
+		[userLoc],
 	);
 
-	const fetchRoute = async (
-		start: [number, number],
-		end: [number, number],
-		mode: 'car' | 'bike' | 'walk',
-	) => {
-		setIsRouting(true);
-		try {
-			// OSRM profiles: car, bicycle, foot
-			// In HCMC/District 4, motorbikes usually follow car routes but are faster in traffic
-			const profile = mode === 'car' ? 'car' : mode === 'bike' ? 'car' : 'foot';
-			const url = `https://router.project-osrm.org/route/v1/${profile}/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
-
-			const response = await fetch(url);
-			const data = await response.json();
-
-			if (data.routes && data.routes.length > 0) {
-				const route = data.routes[0];
-				const coords = route.geometry.coordinates.map((c: [number, number]) => [
-					c[1],
-					c[0],
-				]);
-
-				// Real-world Time estimation for District 4, HCMC
-				// Based on local experience: Cars ~15km/h, Motorbikes ~25km/h, Walking ~4.5km/h
-				const distance = route.distance; // meters
-				const overheadScale = Math.min(1.0, distance / 1000); // Scale overhead for distances < 1km
-				let duration;
-
-				if (mode === 'car') {
-					// 15km/h is ~4.1 m/s. 
-					// Plus 3 min overhead (parking/getting in/out) scaled by distance
-					duration = (distance / 4.1) + (180 * overheadScale);
-				} else if (mode === 'bike') {
-					// 25km/h is ~6.9 m/s. 
-					// Plus 1 min overhead (parking) scaled by distance
-					duration = (distance / 6.9) + (60 * overheadScale);
-				} else {
-					// 4.5km/h is ~1.25 m/s. 
-					// 30s buffer (waiting for street crossing)
-					duration = (distance / 1.25) + (30 * overheadScale);
-				}
-
-				setActiveRoute(coords);
-				setRouteInfo({
-					distance: route.distance, // meters
-					duration: duration,
-				});
-			}
-		} catch (error) {
-			console.error('Routing error:', error);
-			// Fallback to straight line
-			setActiveRoute([start, end]);
-		} finally {
-			setIsRouting(false);
-		}
-	};
-
-	const locateUser = () => {
+	// Handlers
+	const locateUser = useCallback(() => {
 		if (!navigator.geolocation) {
 			setGeoError(t('geo_support_error'));
 			return;
@@ -198,18 +133,40 @@ export default function MapPage() {
 				setMapCenter([latitude, longitude]);
 				setGeoError('');
 			},
-			() => {
-				setGeoError(t('geo_permission_error'));
-			},
+			() => setGeoError(t('geo_permission_error')),
 		);
-	};
+	}, [t]);
 
+	const handleStallClick = useCallback(
+		(stall: Stall) => {
+			setMapCenter(getCoords(stall));
+			setActiveStallId(stall.id);
+			// Close sidebar on mobile after clicking a stall
+			if (window.innerWidth < 768) {
+				setIsSidebarOpen(false);
+			}
+		},
+		[getCoords],
+	);
+
+	const handleOpenModal = useCallback(async (stall: Stall) => {
+		setSelectedStallForModal(stall);
+		setModalLoading(true);
+		try {
+			const response = await foodApi.getByStallId(stall.id);
+			setModalMenu(response.result.filter((item: Food) => item.isAvailable));
+		} catch (error) {
+			console.error('Error fetching modal menu:', error);
+		} finally {
+			setModalLoading(false);
+		}
+	}, []);
+
+	// Geolocation Effect
 	useEffect(() => {
 		let isMounted = true;
 		if (!navigator.geolocation) {
-			setTimeout(() => {
-				if (isMounted) setGeoError('Trình duyệt của bạn không hỗ trợ định vị.');
-			}, 0);
+			if (isMounted) setGeoError('Trình duyệt của bạn không hỗ trợ định vị.');
 			return;
 		}
 		navigator.geolocation.getCurrentPosition(
@@ -220,9 +177,7 @@ export default function MapPage() {
 				setGeoError('');
 			},
 			() => {
-				if (isMounted) {
-					setGeoError(t('geo_permission_error'));
-				}
+				if (isMounted) setGeoError(t('geo_permission_error'));
 			},
 		);
 		return () => {
@@ -230,604 +185,138 @@ export default function MapPage() {
 		};
 	}, [t]);
 
-	// Handle initial activation from URL query if present (from Home GPS button)
+	// URL Query param activation
 	useEffect(() => {
 		const stallIdFromQuery = searchParams.get('stallId');
-		if (stallIdFromQuery) {
-			const targetStall = stallsData.find((s) => s.id === stallIdFromQuery);
+		if (stallIdFromQuery && stalls.length > 0) {
+			const id = Number(stallIdFromQuery);
+			const targetStall = stalls.find((s) => s.id === id);
 			if (targetStall) {
-				setMapCenter(targetStall.coordinates as [number, number]);
-				setActiveStallId(targetStall.id);
+				handleStallClick(targetStall);
 			}
 		}
-	}, [searchParams]);
+	}, [searchParams, stalls, handleStallClick]);
 
-	// Audio Tour Logic
+	// Voice Tour / Alert Effect
 	useEffect(() => {
-		if (!currentUserLoc || !voiceTourEnabled) {
-			if (audioRef.current) {
-				audioRef.current.pause();
-				setActiveAudioId(null);
-			}
+		if (!userLoc || !voiceTourEnabled || stalls.length === 0) {
+			if (activeAudioId !== null) setActiveAudioId(null);
 			return;
 		}
-
-		// Find if we are inside any stall with an audio URL
-		const stallInside = stallsData.find((s) => s.audioUrl && isInsideGeofence(s.coordinates as [number, number]));
-
-		if (stallInside) {
-			if (activeAudioId !== stallInside.id) {
-				// New stall entered
-				if (audioRef.current) {
-					audioRef.current.pause();
-				}
-				const audio = new Audio(stallInside.audioUrl);
-				audio.play()
-					.then(() => setPlayingStallName(stallInside.name))
-					.catch((e) => {
-						console.log('Audio play blocked:', e);
-						setPlayingStallName(`⚠️ Click to play: ${stallInside.name}`);
-					});
-				audioRef.current = audio;
-				setActiveAudioId(stallInside.id);
-			}
-		} else {
-			// Left any stall zone
-			if (audioRef.current) {
-				audioRef.current.pause();
-				setActiveAudioId(null);
-				setPlayingStallName(null);
-			}
+		const stallInside = stalls.find((s) => isInsideGeofence(getCoords(s)));
+		if (stallInside && activeAudioId !== stallInside.id) {
+			setActiveAudioId(stallInside.id);
+			console.log(`UI Toggle: Playing intro for ${stallInside.name}`);
 		}
+	}, [
+		userLoc,
+		voiceTourEnabled,
+		activeAudioId,
+		isInsideGeofence,
+		stalls,
+		getCoords,
+	]);
 
-		return () => {
-			if (audioRef.current) {
-				audioRef.current.pause();
-			}
-		};
-	}, [currentUserLoc, voiceTourEnabled, activeAudioId, isInsideGeofence]);
-
-	// Auto-scroll sidebar, Open Marker Popup AND Clear Route when active stall changes
+	// Markers sync effect
 	useEffect(() => {
-		// Always clear existing route when switching/closing stalls
-		setActiveRoute(null);
-		setRouteInfo(null);
-
 		if (activeStallId) {
 			const activeElement = document.getElementById(
 				`stall-card-${activeStallId}`,
 			);
-			if (activeElement) {
+			if (activeElement)
 				activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			}
-
 			const marker = markerRefs.current[activeStallId];
-			if (marker) {
-				marker.openPopup();
-			}
+			if (marker) marker.openPopup();
 		}
 	}, [activeStallId]);
 
-	return (
-		<div className='w-full h-screen relative flex flex-col md:flex-row bg-slate-50'>
-			{/* Sidebar Info */}
-			<div className='w-full md:w-100 bg-white shadow-2xl z-1000 flex flex-col h-full relative'>
-				<div className='p-8 bg-slate-900 text-white shadow-xl relative overflow-hidden shrink-0'>
-					<div className='absolute -top-10 -right-10 w-40 h-40 bg-orange-500 rounded-full blur-3xl opacity-20'></div>
+	// Nearby Alert Memo
+	const nearbyStall = useMemo(() => {
+		return stalls.find((s) => isInsideGeofence(getCoords(s))) || null;
+	}, [stalls, isInsideGeofence, getCoords]);
 
-					<Link
-						to='/'
-						className='cursor-pointer inline-flex items-center gap-2 text-slate-400 hover:text-orange-500 transition-colors font-black uppercase tracking-widest text-[10px] sm:text-xs mb-6 w-max relative z-10'
-					>
-						<ArrowLeft size={16} /> {t('back_home')}
-					</Link>
-
-					<h2 className='text-3xl font-black flex items-center gap-3 mb-2 tracking-tighter italic uppercase relative z-10'>
-						<MapPin size={28} className='text-orange-500 shrink-0' /> FOOD-MAP
-						VIP
-					</h2>
-					<p className='text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-6 relative z-10'>
-						{t('discover_street_food')}
-					</p>
-
-					<button
-						onClick={locateUser}
-						className='cursor-pointer w-full bg-white text-slate-900 font-extrabold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 text-sm uppercase tracking-widest'
-					>
-						<Navigation size={18} /> {t('your_location')}
-					</button>
-
-					<button
-						onClick={() => setVoiceTourEnabled(!voiceTourEnabled)}
-						className={`cursor-pointer w-full mt-3 font-extrabold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 text-sm uppercase tracking-widest ${voiceTourEnabled ? 'bg-orange-500 text-white animate-pulse' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
-					>
-						{voiceTourEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-						{voiceTourEnabled ? t('voice_tour_on') : t('voice_tour_off')}
-					</button>
-
-					{geoError && (
-						<p className='text-xs text-red-400 mt-4 text-center font-medium bg-red-400/10 py-2 rounded-lg'>
-							{geoError}
-						</p>
-					)}
-				</div>
-
-				<div className='flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 relative z-10 no-scrollbar'>
-					{/* Search & Filter Section */}
-					<div className='space-y-4'>
-						<div className='relative group'>
-							<Search
-								className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors'
-								size={18}
-							/>
-							<input
-								type='text'
-								placeholder={t('search_placeholder')}
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								className='w-full bg-white border border-slate-200 py-4 pl-12 pr-4 rounded-2xl text-sm font-bold placeholder:text-slate-400 focus:outline-hidden focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all shadow-sm group-hover:shadow-md'
-							/>
-						</div>
-
-						<div className='flex gap-2 overflow-x-auto no-scrollbar pb-1 items-center'>
-							<div className='shrink-0 w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400'>
-								<Filter size={16} />
-							</div>
-							{categories.map((cat) => (
-								<button
-									key={cat}
-									onClick={() => setSelectedCategory(cat)}
-									className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
-										selectedCategory === cat
-											? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
-											: 'bg-white text-slate-500 border border-slate-200 hover:border-orange-500 hover:text-orange-500 shadow-sm'
-									}`}
-								>
-									{cat === 'All' ? t('all_categories') : cat}
-								</button>
-							))}
-						</div>
-					</div>
-
-					<div className='flex items-center gap-2'>
-						<div className='w-2 h-6 bg-orange-500 rounded-full'></div>
-						<div className='text-sm font-black text-slate-800 uppercase tracking-widest'>
-							{filteredStalls.length > 0
-								? t('nearby_stalls', { count: filteredStalls.length })
-								: t('no_results')}
-						</div>
-					</div>
-					{filteredStalls.map((stall) => {
-						const isActive = activeStallId === stall.id;
-						const distanceStr = getDistanceStr(
-							stall.coordinates as [number, number],
-						);
-						const isInside = isInsideGeofence(
-							stall.coordinates as [number, number],
-						);
-						return (
-							<div
-								key={stall.id}
-								id={`stall-card-${stall.id}`}
-								onClick={() => {
-									setMapCenter(stall.coordinates as [number, number]);
-									setActiveStallId(stall.id);
-								}}
-								className={`p-5 rounded-[24px] shadow-sm cursor-pointer transition-all flex gap-5 pr-12 relative group ${isActive ? 'bg-orange-50 bg-opacity-50 border-2 border-orange-500 scale-[1.02]' : isInside ? 'bg-green-50/50 border-2 border-green-400 shadow-lg' : 'bg-white border border-slate-100 hover:border-orange-500 hover:shadow-xl'}`}
-							>
-								<div
-									className={`w-16 h-16 rounded-2xl overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform ${isActive ? 'ring-4 ring-orange-500/30' : ''}`}
-								>
-									<img
-										src={stall.image}
-										className='w-full h-full object-cover'
-										alt=''
-									/>
-								</div>
-								<div className='flex-1 flex flex-col justify-center text-left'>
-									<div
-										className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-orange-600' : isInside ? 'text-green-600' : 'text-slate-500 group-hover:text-orange-600'}`}
-									>
-										{stall.category} {isInside && '📍 NEARBY'}
-									</div>
-									<h4 className='font-bold text-slate-900 leading-tight text-base group-hover:text-orange-600 transition-colors uppercase italic tracking-tight'>
-										{stall.name}
-									</h4>
-									{distanceStr && (
-										<div className='flex items-center gap-1 mt-1.5 text-slate-400 text-xs font-semibold'>
-											<Navigation size={12} className='inline rotate-45' /> {t('away_from_you', { distance: distanceStr })}
-										</div>
-									)}
-								</div>
-								<div
-									className={`absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all ${isActive ? 'bg-orange-500 text-white' : isInside ? 'bg-green-500 text-white animate-pulse' : 'bg-slate-50 text-slate-400 group-hover:bg-orange-500 group-hover:text-white'}`}
-								>
-									<Navigation size={18} />
-								</div>
-							</div>
-						);
-					})}
-				</div>
+	if (loading) {
+		return (
+			<div className='w-full h-screen flex flex-col items-center justify-center bg-slate-900 text-white'>
+				<Loader2 className='w-12 h-12 animate-spin text-orange-500 mb-4' />
+				<p className='font-black italic uppercase tracking-widest animate-pulse'>
+					Initializing Food-Map...
+				</p>
 			</div>
+		);
+	}
 
-			{/* Map Content */}
-			<div className='flex-1 h-full z-0 relative overflow-hidden bg-slate-100'>
-				<MapContainer
-					center={defaultCenter}
-					zoom={16}
-					className='w-full h-full'
-					zoomControl={false}
-				>
-					{/* CartoDB Light BaseMap (Sạch sẽ, đẹp và hiện đại hơn) */}
-					<TileLayer
-						attribution='&copy; <a href="https://carto.com/">Carto</a>'
-						url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-					/>
-					<MapController center={mapCenter} />
-					<MapEvents onMapClick={() => setActiveStallId(null)} />
+	return (
+		<div className='w-full h-screen relative flex flex-col md:flex-row bg-slate-50 overflow-hidden'>
+			{/* Mobile Toggle Button */}
+			<button
+				onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+				className='md:hidden fixed top-24 left-6 z-500 w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 active:scale-95 transition-all'
+			>
+				{isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+			</button>
 
-					{currentUserLoc && (
-						<>
-							<Circle
-								center={currentUserLoc}
-								radius={GEOFENCE_RADIUS}
-								pathOptions={{
-									fillColor: mockLoc ? '#ef4444' : '#3b82f6',
-									fillOpacity: 0.1,
-									color: mockLoc ? '#ef4444' : '#3b82f6',
-									weight: 1,
-									dashArray: '5, 10',
-								}}
-							/>
-							<Marker position={currentUserLoc} icon={userIcon}>
-								<Popup className='custom-popup'>
-									<div className='font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4'>
-										{mockLoc ? 'SIMULATED GPS' : t('you_are_here')}
-									</div>
-								</Popup>
-							</Marker>
-						</>
-					)}
+			<div 
+				className={`
+					fixed inset-0 z-400 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 md:hidden
+					${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+				`}
+				onClick={() => setIsSidebarOpen(false)}
+			/>
 
-					{activeRoute && (
-						<Polyline
-							positions={activeRoute}
-							color='#f97316'
-							weight={6}
-							opacity={0.8}
-							dashArray='12, 12'
-							lineCap='round'
-						/>
-					)}
-
-
-					{filteredStalls.map((stall) => {
-						const distanceStr = getDistanceStr(
-							stall.coordinates as [number, number],
-						);
-						return (
-							<Marker
-								key={stall.id}
-								ref={(el) => {
-									markerRefs.current[stall.id] = el;
-								}}
-								position={stall.coordinates as [number, number]}
-								icon={createStallIcon(stall, activeStallId === stall.id)}
-								zIndexOffset={activeStallId === stall.id ? 1000 : 0}
-								eventHandlers={{
-									click: () => {
-										setActiveStallId(stall.id);
-										setMapCenter(stall.coordinates as [number, number]);
-									},
-								}}
-							>
-								<Popup className='custom-popup rounded-[30px] overflow-hidden p-0 shadow-2xl border-4 border-white'>
-									<div className='w-72 sm:w-80 overflow-hidden bg-white flex flex-col'>
-										<div className='relative h-36 sm:h-40'>
-											<img
-												src={stall.image}
-												className='w-full h-full object-cover'
-												alt={stall.name}
-											/>
-											<div className='absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-xl text-sm font-black text-yellow-500 flex items-center gap-1 shadow-sm'>
-												⭐ {stall.rating}
-											</div>
-										</div>
-										<div className='p-6 text-center flex-1 flex flex-col justify-between'>
-											<div>
-												<div className='text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-orange-500 mb-1.5'>
-													{stall.category}
-												</div>
-												<h4 className='font-black text-xl sm:text-2xl text-slate-900 italic tracking-tight leading-tight'>
-													{stall.name}
-												</h4>
-												{distanceStr && (
-													<div className='flex justify-center items-center gap-1 mt-2.5 text-slate-500 text-sm font-bold bg-slate-100 px-3 py-1 rounded-xl w-max mx-auto shadow-inner border border-slate-200/50'>
-														<Navigation
-															size={14}
-															className='inline rotate-45'
-														/>{' '}
-														{t('distance_away', { distance: distanceStr })}
-													</div>
-												)}
-											</div>
-											<div className='flex flex-col gap-3 mt-4'>
-												<div className='flex gap-2 p-1 bg-slate-100 rounded-xl'>
-													{[
-														{ id: 'car', icon: Car, label: t('parking_car') },
-														{ id: 'bike', icon: Bike, label: t('parking_bike') },
-														{ id: 'walk', icon: Footprints, label: t('parking_walk') },
-													].map((m) => (
-														<button
-															key={m.id}
-															onClick={(e) => {
-																e.stopPropagation();
-																const mode = m.id as 'car' | 'bike' | 'walk';
-																setTravelMode(mode);
-																if (userLoc)
-																	fetchRoute(
-																		userLoc,
-																		stall.coordinates as [number, number],
-																		mode,
-																	);
-															}}
-															className={`cursor-pointer flex-1 flex flex-col items-center gap-1 py-2 rounded-lg transition-all ${travelMode === m.id ? 'bg-white shadow-sm text-orange-600' : 'text-slate-400 hover:text-slate-600'}`}
-														>
-															<m.icon size={16} />
-															<span className='text-[8px] font-black uppercase'>
-																{m.label}
-															</span>
-														</button>
-													))}
-												</div>
-
-												{routeInfo && activeStallId === stall.id && (
-													<div className='text-[10px] font-bold text-slate-600 bg-orange-50 py-2 px-3 rounded-xl animate-in fade-in slide-in-from-top-1 border border-orange-100 flex items-center justify-between'>
-														<div className='flex items-center gap-1.5'>
-															<span className='text-orange-500 text-xs'>
-																⏱️
-															</span>
-															<span>
-																{t('estimated_time')}
-																<span className='text-orange-600 font-black'>
-																	{Math.ceil(routeInfo.duration / 60)} {t('minutes')}
-																</span>
-															</span>
-														</div>
-														<div className='text-slate-400 font-medium'>
-															{(routeInfo.distance / 1000).toFixed(1)} km
-														</div>
-													</div>
-												)}
-
-												<div className='flex gap-2'>
-													<button
-														onClick={(e) => {
-															e.stopPropagation();
-															setSelectedStallForModal(stall);
-														}}
-														className='flex-1 cursor-pointer bg-slate-900 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider py-3 rounded-xl hover:bg-orange-500 transition-all flex items-center justify-center gap-1.5'
-													>
-														<Utensils size={13} /> {t('view_menu')}
-													</button>
-													<button
-														disabled={isRouting}
-														onClick={(e) => {
-															e.stopPropagation();
-															if (userLoc) {
-																fetchRoute(
-																	userLoc,
-																	stall.coordinates as [number, number],
-																	travelMode,
-																);
-															} else {
-																alert(t('enable_geo_alert'));
-															}
-														}}
-														className={`flex-1 cursor-pointer bg-orange-500 text-white! text-[9px] sm:text-[10px] font-black uppercase tracking-wider py-3 rounded-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5 ${isRouting ? 'opacity-50 animate-pulse' : ''}`}
-													>
-														<Navigation size={13} className='rotate-45' />{' '}
-														{isRouting ? t('calculating') : t('get_directions')}
-													</button>
-												</div>
-											</div>
-										</div>
-									</div>
-								</Popup>
-							</Marker>
-						);
-					})}
-				</MapContainer>
-
-				{/* Custom CSS overrides for Leaflet elements inside this component */}
-				<style
-					dangerouslySetInnerHTML={{
-						__html: `
-          .leaflet-container { font-family: inherit; }
-          .custom-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3); background: transparent; }
-          .custom-popup .leaflet-popup-content { margin: 0; width: auto !important; }
-          .custom-popup .leaflet-popup-tip-container { display: none; }
-          
-          /* Custom Close Button for Leaflet Popup */
-          .custom-popup .leaflet-popup-close-button {
-            width: 32px !important;
-            height: 32px !important;
-            top: 12px !important;
-            right: 12px !important;
-            background-color: rgba(0, 0, 0, 0.5) !important;
-            border-radius: 50% !important;
-            color: white !important;
-            font-size: 24px !important;
-            line-height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            text-align: center !important;
-            transition: all 0.2s ease !important;
-            z-index: 50;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-          }
-          .custom-popup .leaflet-popup-close-button:hover {
-            background-color: #f97316 !important;
-            transform: scale(1.15) !important;
-          }
-
-          .pulse-animation { animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
-          @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(37, 99, 235, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-          }
-          .no-scrollbar::-webkit-scrollbar { display: none; }
-        `,
-					}}
+			<div className={`
+				fixed md:relative inset-y-0 left-0 z-400 w-80 sm:w-100 transition-transform duration-500 ease-in-out
+				${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+			`}>
+				<MapSidebar
+					stalls={stalls}
+					filteredStalls={filteredStalls}
+					searchQuery={searchQuery}
+					onSearchChange={setSearchQuery}
+					selectedCategory={selectedCategory}
+					onCategoryChange={setSelectedCategory}
+					categories={categories}
+					activeStallId={activeStallId}
+					onStallClick={handleStallClick}
+					isInsideGeofence={isInsideGeofence}
+					getDistanceStr={getDistanceStr}
+					getCoords={getCoords}
+					locateUser={locateUser}
+					geoError={geoError}
+					t={t}
 				/>
 			</div>
 
-			{/* Menu Modal */}
-			{selectedStallForModal && (
-				<div className='absolute inset-0 z-[5000] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4'>
-					<div className='bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl relative flex flex-col animate-in zoom-in-95 duration-200'>
-						<button
-							onClick={() => setSelectedStallForModal(null)}
-							className='cursor-pointer absolute top-4 right-4 w-10 h-10 bg-black/40 hover:bg-orange-500 text-white rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-lg z-20'
-						>
-							<X size={24} strokeWidth={3} />
-						</button>
-						<div className='relative h-40 shrink-0'>
-							<img
-								src={selectedStallForModal.image}
-								alt={selectedStallForModal.name}
-								className='w-full h-full object-cover'
-							/>
-							<div className='absolute inset-0 bg-linear-to-t from-slate-950 via-slate-900/40 to-transparent'></div>
-							<div className='absolute bottom-4 left-5 text-white'>
-								<div className='text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1'>
-									{selectedStallForModal.category}
-								</div>
-								<h3 className='text-2xl font-black italic tracking-tight'>
-									{selectedStallForModal.name}
-								</h3>
-							</div>
-						</div>
-						<div className='p-6 flex-1 flex flex-col'>
-							<h4 className='font-black text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2 mb-4 shrink-0'>
-								<Utensils size={16} className='text-orange-500' /> {t('typical_dishes')}
-							</h4>
-							<div className='space-y-3 mb-6 shrink-0'>
-								{selectedStallForModal.menu.slice(0, 3).map((item) => (
-									<div
-										key={item.id}
-										className='flex justify-between items-center bg-slate-50 p-3.5 rounded-2xl border border-slate-100'
-									>
-										<div className='flex-1 pr-4'>
-											<div className='font-bold text-sm text-slate-900 leading-tight'>
-												{item.name}
-											</div>
-										</div>
-										<div className='font-black text-orange-600 text-sm whitespace-nowrap'>
-											{item.price.toLocaleString('vi-VN')}{' '}
-											<span className='text-[9px] font-bold text-slate-400'>
-												VNĐ
-											</span>
-										</div>
-									</div>
-								))}
-							</div>
-							<div className='mt-auto shrink-0'>
-								<Link
-									to={`/stall/${selectedStallForModal.id}`}
-									className='cursor-pointer block text-center w-full bg-linear-to-r from-orange-500 to-red-600 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:to-red-700 transition-all active:scale-95'
-								>
-									{t('view_details')}
-								</Link>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* Floating Geofence Entry Alert Overlay */}
-			{currentUserLoc &&
-				filteredStalls
-					.filter((s) => isInsideGeofence(s.coordinates as [number, number]))
-					.slice(0, 1)
-					.map((stall) => (
-						<div
-							key={`alert-${stall.id}`}
-							className='absolute bottom-10 left-1/2 -translate-x-1/2 z-[4000] w-max max-w-sm px-4'
-						>
-							<div className='bg-slate-900 text-white p-4 rounded-3xl shadow-2xl flex items-center gap-4 border border-white/10 backdrop-blur-xl animate-in fade-in zoom-in duration-300'>
-								<div className='w-12 h-12 rounded-2xl overflow-hidden shrink-0 border-2 border-orange-500'>
-									<img
-										src={stall.image}
-										className='w-full h-full object-cover'
-										alt=''
-									/>
-								</div>
-								<div className='flex-1'>
-									<p className='text-[10px] font-black uppercase text-orange-400 tracking-widest mb-0.5'>
-										Nearby POI 📍
-									</p>
-									<h5 className='font-bold text-sm leading-tight'>
-										{t('geofence_alert', { name: stall.name })}
-									</h5>
-								</div>
-								<button
-									onClick={() => {
-										setActiveStallId(stall.id);
-										setMapCenter(stall.coordinates as [number, number]);
-									}}
-									className='bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all'
-								>
-									{t('geofence_hint')}
-								</button>
-							</div>
-						</div>
-					))}
-
-			{/* Debug / Test Simulation Panel */}
-			<div className='absolute top-24 right-5 z-[4000] flex flex-col gap-2'>
-				<div className='bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-200 w-48'>
-					<h6 className='text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1'>
-						{t('test_gps_title')} 🛠️
-					</h6>
-					<div className='flex flex-col gap-1.5'>
-						{stallsData.slice(0, 3).map((s) => (
-							<button
-								key={`test-${s.id}`}
-								onClick={() => {
-									setMockLoc(s.coordinates as [number, number]);
-									setMapCenter(s.coordinates as [number, number]);
-								}}
-								className='text-left text-[11px] font-bold p-2 rounded-xl hover:bg-orange-500 hover:text-white transition-all bg-slate-50 text-slate-600 line-clamp-1'
-							>
-								📍 {s.name}
-							</button>
-						))}
-						{mockLoc && (
-							<button
-								onClick={() => setMockLoc(null)}
-								className='text-[11px] font-black p-2 rounded-xl bg-slate-900 text-white hover:bg-red-500 transition-all mt-1'
-							>
-								✖ {t('test_gps_restore')}
-							</button>
-						)}
-					</div>
-				</div>
+			<div className='flex-1 h-full relative'>
+				<MapContent
+					stalls={stalls}
+					filteredStalls={filteredStalls}
+					userLoc={userLoc}
+					mapCenter={mapCenter}
+					activeStallId={activeStallId}
+					onStallClick={handleStallClick}
+					onMapClick={() => setActiveStallId(null)}
+					handleOpenModal={handleOpenModal}
+					getCoords={getCoords}
+					getDistanceStr={getDistanceStr}
+					geofenceRadius={geofenceRadius}
+					userIcon={userIcon}
+					createStallIcon={createStallIcon}
+					markerRefs={markerRefs}
+					locateUser={locateUser}
+					t={t}
+				/>
 			</div>
-			{/* Audio Tour Status Indicator */}
-			{voiceTourEnabled && playingStallName && (
-				<div 
-					onClick={() => audioRef.current?.play()}
-					className='absolute top-24 left-1/2 -translate-x-1/2 z-[4000] bg-orange-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce cursor-pointer border-2 border-white'
-				>
-					<Volume2 size={20} className='animate-pulse' />
-					<span className='font-black text-xs uppercase tracking-widest'>
-						{playingStallName}
-					</span>
-				</div>
-			)}
+
+			<MenuModal
+				stall={selectedStallForModal}
+				menu={modalMenu}
+				loading={modalLoading}
+				t={t}
+				onClose={() => setSelectedStallForModal(null)}
+			/>
+
+			<MapOverlay stall={nearbyStall} t={t} onAction={handleStallClick} />
 		</div>
 	);
 }
