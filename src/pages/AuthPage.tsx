@@ -115,21 +115,6 @@ export default function AuthPage() {
 					<p className='text-slate-300 font-bold text-lg mb-8 leading-relaxed'>
 						{t('hero_description')}
 					</p>
-					<div className='flex items-center gap-8'>
-						<div>
-							<div className='text-3xl font-black text-white italic'>50+</div>
-							<div className='text-[10px] uppercase font-black tracking-widest text-slate-500'>
-								{t('stat_stalls')}
-							</div>
-						</div>
-						<div className='w-px h-8 bg-slate-800'></div>
-						<div>
-							<div className='text-3xl font-black text-white italic'>10K+</div>
-							<div className='text-[10px] uppercase font-black tracking-widest text-slate-500'>
-								{t('stat_foodies')}
-							</div>
-						</div>
-					</div>
 				</div>
 			</div>
 

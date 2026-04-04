@@ -1,7 +1,7 @@
-import { Store, Clock, Users, Activity, LogOut } from 'lucide-react';
+import { Store, Clock, Users, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export type AdminTab = 'stalls' | 'pending' | 'users' | 'analytics';
+export type AdminTab = 'stalls' | 'pending' | 'users';
 
 interface AdminSidebarProps {
 	activeTab: AdminTab;
@@ -79,21 +79,7 @@ export default function AdminSidebar({
 						size={20}
 						className={activeTab === 'users' ? 'text-orange-500' : ''}
 					/>{' '}
-					Quản lý Người dùng
-				</button>
-				<button
-					onClick={() => handleTabClick('analytics')}
-					className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all cursor-pointer ${
-						activeTab === 'analytics'
-							? 'bg-white/10 border border-white/10 text-white shadow-xl'
-							: 'text-slate-400 hover:text-white hover:bg-white/5'
-					}`}
-				>
-					<Activity
-						size={20}
-						className={activeTab === 'analytics' ? 'text-orange-500' : ''}
-					/>{' '}
-					Thống kê Giao dịch
+					Quản lý Chủ gian hàng
 				</button>
 			</nav>
 

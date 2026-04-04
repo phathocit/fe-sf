@@ -7,13 +7,19 @@ import {
 	User,
 	ShieldAlert,
 	X,
-	Users,
-	Activity,
+	Eye,
+	Utensils,
+	MapPin,
+	Info,
+	Volume2,
+	Trash2,
 } from 'lucide-react';
 import stallApi from '../../api/stallApi';
 import accountApi from '../../api/accountApi';
+import foodApi from '../../api/foodApi';
 import type { Stall } from '../../types/stall.types';
 import type { Account } from '../../types/auth.types';
+import type { Food } from '../../types/food.types';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,6 +30,7 @@ export default function AdminDashboard() {
 	const { logout } = useAuth();
 	const [activeTab, setActiveTab] = useState<AdminTab>('stalls');
 	const [stalls, setStalls] = useState<Stall[]>([]);
+	const [accounts, setAccounts] = useState<Account[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState('');
 
@@ -31,15 +38,24 @@ export default function AdminDashboard() {
 	const [selectedVendor, setSelectedVendor] = useState<Account | null>(null);
 	const [vendorLoading, setVendorLoading] = useState(false);
 
+	const [isStallDetailOpen, setIsStallDetailOpen] = useState(false);
+	const [selectedStall, setSelectedStall] = useState<Stall | null>(null);
+	const [stallMenu, setStallMenu] = useState<Food[]>([]);
+	const [stallMenuLoading, setStallMenuLoading] = useState(false);
+
 	useEffect(() => {
 		const fetchData = async () => {
 			setLoading(true);
 			try {
-				const response = await stallApi.getAll();
-				setStalls(response.result);
+				const [stallRes, accountRes] = await Promise.all([
+					stallApi.getAll(),
+					accountApi.getAll(),
+				]);
+				setStalls(stallRes.result);
+				setAccounts(accountRes.result);
 			} catch (error) {
-				console.error('Failed to fetch stalls:', error);
-				toast.error('Không thể tải danh sách gian hàng');
+				console.error('Failed to fetch admin data:', error);
+				toast.error('Không thể tải danh sách dữ liệu');
 			} finally {
 				setLoading(false);
 			}
@@ -47,17 +63,31 @@ export default function AdminDashboard() {
 		fetchData();
 	}, []);
 
-	const filteredStalls = useMemo(() => {
-		const isShowingStallsTab = activeTab === 'stalls';
+	const filteredData = useMemo(() => {
+		const q = searchQuery.toLowerCase();
+		
+		if (activeTab === 'stalls' || activeTab === 'pending') {
+			return stalls.filter((s) => {
+				const matchesTab = activeTab === 'stalls' ? s.isActive : !s.isActive;
+				return matchesTab && (s.name.toLowerCase().includes(q) || s.id.toString().includes(q));
+			});
+		}
+		
+		if (activeTab === 'users') {
+			return accounts.filter((a) => {
+				const isAdmin = a.roles.some((r) => r.name === 'ADMIN');
+				if (isAdmin) return false;
 
-		return stalls.filter((s) => {
-			const matchesTab = isShowingStallsTab ? s.isActive : !s.isActive;
-			const matchesSearch =
-				s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.id.toString().includes(searchQuery);
-			return matchesTab && matchesSearch;
-		});
-	}, [stalls, searchQuery, activeTab]);
+				return (
+					a.fullName.toLowerCase().includes(q) ||
+					a.userName.toLowerCase().includes(q) ||
+					a.email.toLowerCase().includes(q)
+				);
+			});
+		}
+		
+		return [];
+	}, [stalls, accounts, searchQuery, activeTab]);
 
 	const handleToggleActive = async (stall: Stall) => {
 		const action = stall.isActive ? 'ngừng hoạt động' : 'kích hoạt lại';
@@ -81,18 +111,59 @@ export default function AdminDashboard() {
 		}
 	};
 
+	const handleViewStallDetails = async (stall: Stall) => {
+		setSelectedStall(stall);
+		setIsStallDetailOpen(true);
+		setStallMenuLoading(true);
+		
+		try {
+			// Fetch menu for this stall
+			const foodRes = await foodApi.getByStallId(stall.id);
+			setStallMenu(foodRes.result || []);
+			
+			// If vendor is not loaded yet, load brief info
+			if (!selectedVendor || Number(selectedVendor.id) !== stall.vendorId) {
+				const accRes = await accountApi.getById(stall.vendorId);
+				setSelectedVendor(accRes.result);
+			}
+		} catch (error) {
+			console.error('Failed to fetch stall details:', error);
+			toast.error('Không thể lấy đầy đủ thông tin gian hàng');
+		} finally {
+			setStallMenuLoading(false);
+		}
+	};
+
 	const handleViewVendor = async (vendorId: number) => {
 		setVendorLoading(true);
 		setIsVendorModalOpen(true);
 		try {
 			const res = await accountApi.getById(vendorId);
 			setSelectedVendor(res.result);
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		} catch (error) {
+		} catch {
 			toast.error('Không thể lấy thông tin chủ gian hàng');
 			setIsVendorModalOpen(false);
 		} finally {
 			setVendorLoading(false);
+		}
+	};
+
+	const handleToggleUserActive = async (account: Account) => {
+		const action = account.isActive ? 'ngừng hoạt động' : 'kích hoạt lại';
+		if (!window.confirm(`Xác nhận ${action} tài khoản ${account.userName}?`)) return;
+
+		try {
+			const res = await accountApi.update(account.id, {
+				isActive: !account.isActive,
+			});
+			if (res.result) {
+				setAccounts(accounts.map((a) => (a.id === account.id ? res.result : a)));
+				toast.success(
+					`${account.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'} thành công!`,
+				);
+			}
+		} catch {
+			toast.error('Thao tác người dùng thất bại!');
 		}
 	};
 
@@ -187,12 +258,12 @@ export default function AdminDashboard() {
 														Trạng thái
 													</th>
 													<th className='p-6 text-right pr-10 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
-														Quản lý nghiệp vụ
+														Hành động
 													</th>
 												</tr>
 											</thead>
 											<tbody className='divide-y divide-slate-50 font-medium text-slate-700'>
-												{filteredStalls.map((stall) => (
+												{(filteredData as Stall[]).map((stall) => (
 													<tr
 														key={stall.id}
 														className='hover:bg-slate-50/50 transition-colors group'
@@ -242,6 +313,14 @@ export default function AdminDashboard() {
 															{activeTab === 'stalls' ? (
 																<div className='flex justify-end gap-2'>
 																	<button
+																		onClick={() => handleViewStallDetails(stall)}
+																		title='Xem chi tiết gian hàng'
+																		className='cursor-pointer w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm'
+																	>
+																		<Eye size={18} />
+																	</button>
+
+																	<button
 																		onClick={() => handleViewVendor(stall.vendorId)}
 																		title='Xem chủ sở hữu'
 																		className='cursor-pointer w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-orange-600 hover:text-white transition-all shadow-sm'
@@ -268,11 +347,11 @@ export default function AdminDashboard() {
 															) : (
 																<div className='flex justify-end gap-2'>
 																	<button
-																		onClick={() => handleViewVendor(stall.vendorId)}
+																		onClick={() => handleViewStallDetails(stall)}
 																		title='Xem hồ sơ gian hàng'
 																		className='cursor-pointer px-4 h-10 rounded-xl bg-white border-2 border-slate-100 text-slate-600 flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-slate-200 transition-all font-bold text-xs shadow-sm'
 																	>
-																		<ShieldAlert size={16} /> Hồ sơ
+																		<Eye size={16} /> Chi tiết
 																	</button>
 																	<button
 																		onClick={() => handleToggleActive(stall)}
@@ -298,7 +377,7 @@ export default function AdminDashboard() {
 											</tbody>
 										</table>
 									</div>
-									{filteredStalls.length === 0 && (activeTab === 'stalls' || activeTab === 'pending') && (
+									{filteredData.length === 0 && (activeTab === 'stalls' || activeTab === 'pending') && (
 										<div className='p-20 text-center text-slate-400 flex flex-col items-center'>
 											<ShieldAlert size={48} className='mb-4 opacity-20' />
 											<p className='font-black uppercase tracking-widest text-xs'>
@@ -310,24 +389,229 @@ export default function AdminDashboard() {
 							)}
 
 							{activeTab === 'users' && (
-								<div className='flex-1 flex flex-col items-center justify-center bg-white border border-slate-200 rounded-4xl shadow-sm'>
-									<Users size={64} className='text-slate-200 mb-6' />
-									<h3 className='text-xl font-black text-slate-900 uppercase italic'>Quản lý Người dùng</h3>
-									<p className='text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2'>Tính năng đang được phát triển</p>
+								<div className='flex-1 min-h-0 bg-white border border-slate-200 rounded-4xl shadow-sm flex flex-col'>
+									<div className='flex-1 overflow-auto no-scrollbar'>
+										<table className='w-full text-left border-separate border-spacing-0'>
+											<thead className='sticky top-0 z-10'>
+												<tr className='bg-slate-50'>
+													<th className='p-6 pl-10 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														ID
+													</th>
+													<th className='p-6 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														Họ tên
+													</th>
+													<th className='p-6 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														Email
+													</th>
+													<th className='p-6 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														Vai trò
+													</th>
+													<th className='p-6 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														Trạng thái
+													</th>
+													<th className='p-6 text-right pr-10 border-b border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]'>
+														Quản lý
+													</th>
+												</tr>
+											</thead>
+											<tbody className='divide-y divide-slate-50 font-medium text-slate-700'>
+												{(filteredData as Account[]).map((account) => (
+													<tr
+														key={account.id}
+														className='hover:bg-slate-50/50 transition-colors group'
+													>
+														<td className='p-6 pl-10'>
+															<span className='font-black text-slate-400 text-xs tracking-tighter'>
+																#{account.id}
+															</span>
+														</td>
+														<td className='p-6'>
+															<div className='flex items-center gap-3'>
+																<div className='w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black'>
+																	{account.fullName.charAt(0)}
+																</div>
+																<div>
+																	<div className='font-black text-slate-900 uppercase italic tracking-tight'>{account.fullName}</div>
+																	<div className='text-[10px] text-slate-400 font-bold'>@{account.userName}</div>
+																</div>
+															</div>
+														</td>
+														<td className='p-6'>
+															<div className='text-xs font-bold text-slate-600'>{account.email}</div>
+														</td>
+														<td className='p-6'>
+															<div className='flex gap-1 flex-wrap'>
+																{account.roles.map((r) => (
+																	<span key={r.name} className='px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black uppercase tracking-widest text-slate-600 border border-slate-200'>
+																		{r.name}
+																	</span>
+																))}
+															</div>
+														</td>
+														<td className='p-6'>
+															<div className='flex items-center gap-2'>
+																<div className={`w-2 h-2 rounded-full ${account.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+																<span className={`text-[10px] font-black uppercase tracking-widest ${account.isActive ? 'text-emerald-500' : 'text-rose-500'}`}>
+																	{account.isActive ? 'Hoạt động' : 'Bị khóa'}
+																</span>
+															</div>
+														</td>
+														<td className='p-6 text-right pr-10'>
+															<div className='flex justify-end gap-2'>
+																<button
+																	onClick={() => handleViewVendor(Number(account.id))}
+																	className='cursor-pointer w-9 h-9 rounded-xl bg-slate-100 text-slate-400 hover:bg-orange-600 hover:text-white transition-all flex items-center justify-center'
+																>
+																	<Eye size={16} />
+																</button>
+																<button
+																	onClick={() => handleToggleUserActive(account)}
+																	className={`cursor-pointer w-9 h-9 rounded-xl transition-all flex items-center justify-center ${account.isActive ? 'bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white' : 'bg-emerald-50 text-emerald-500 hover:bg-emerald-600 hover:text-white'}`}
+																>
+																	{account.isActive ? <Trash2 size={16} /> : <CheckCircle2 size={16} />}
+																</button>
+															</div>
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
 								</div>
 							)}
 
-							{activeTab === 'analytics' && (
-								<div className='flex-1 flex flex-col items-center justify-center bg-white border border-slate-200 rounded-4xl shadow-sm'>
-									<Activity size={64} className='text-slate-200 mb-6' />
-									<h3 className='text-xl font-black text-slate-900 uppercase italic'>Thống kê Giao dịch</h3>
-									<p className='text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2'>Tính năng đang được phát triển</p>
-								</div>
-							)}
 						</>
 					)}
 				</main>
 			</div>
+
+			{isStallDetailOpen && selectedStall && (
+				<div className='fixed inset-0 z-50 flex items-center justify-center p-6'>
+					<div
+						className='absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300'
+						onClick={() => setIsStallDetailOpen(false)}
+					></div>
+					<div className='relative bg-white w-full max-w-5xl h-[85vh] rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col'>
+						<div className='p-1 bg-indigo-600'></div>
+						
+						{/* Header */}
+						<div className='p-8 pb-4 flex justify-between items-start border-b border-slate-50'>
+							<div className='flex gap-6'>
+								<div className='w-24 h-24 rounded-4xl overflow-hidden shadow-2xl rotate-3 shrink-0'>
+									<img src={selectedStall.image} alt='' className='w-full h-full object-cover' />
+								</div>
+								<div>
+									<div className='flex items-center gap-3 mb-2'>
+										<span className='bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100'>
+											{selectedStall.category}
+										</span>
+										<span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${selectedStall.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+											{selectedStall.isActive ? 'Kích hoạt' : 'Tạm khóa'}
+										</span>
+									</div>
+									<h2 className='text-4xl font-black italic uppercase tracking-tighter text-slate-900'>
+										{selectedStall.name}
+									</h2>
+									<div className='flex items-center gap-4 mt-2 text-slate-400 font-bold text-xs uppercase tracking-widest'>
+										<span className='flex items-center gap-1.5'><MapPin size={14} className='text-rose-500' /> {selectedStall.latitude}, {selectedStall.longitude}</span>
+										<span className='flex items-center gap-1.5'><User size={14} className='text-orange-500' /> Chủ quán: {selectedVendor?.fullName || '...'}</span>
+									</div>
+								</div>
+							</div>
+							<button
+								onClick={() => setIsStallDetailOpen(false)}
+								className='cursor-pointer w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm'
+							>
+								<X size={24} />
+							</button>
+						</div>
+
+						{/* Content body */}
+						<div className='flex-1 overflow-y-auto no-scrollbar p-8 grid grid-cols-1 lg:grid-cols-2 gap-12'>
+							{/* Left: General Info & Script */}
+							<div className='space-y-10'>
+								<section>
+									<h3 className='font-black text-slate-900 italic uppercase tracking-tight flex items-center gap-3 mb-4'>
+										<Info className='text-indigo-500' /> Giới thiệu gian hàng
+									</h3>
+									<div className='bg-slate-50 p-6 rounded-4xl border border-slate-100 text-slate-600 font-medium leading-relaxed'>
+										{selectedStall.description || 'Không có mô tả cho gian hàng này.'}
+									</div>
+								</section>
+
+								<section>
+									<h3 className='font-black text-slate-900 italic uppercase tracking-tight flex items-center gap-3 mb-4'>
+										<Volume2 className='text-orange-500' /> Kịch bản audio thuyết minh
+									</h3>
+									<div className='bg-orange-50/50 p-6 rounded-4xl border border-orange-100 text-slate-700 font-medium leading-relaxed italic'>
+										“ {selectedStall.script || 'Chưa được thiết lập kịch bản audio.'} ”
+									</div>
+								</section>
+							</div>
+
+							{/* Right: Menu List */}
+							<section className='flex flex-col h-full'>
+								<h3 className='font-black text-slate-900 italic uppercase tracking-tight flex items-center gap-3 mb-4 shrink-0'>
+									<Utensils className='text-emerald-500' /> Danh sách thực đơn ({stallMenu.length})
+								</h3>
+								<div className='flex-1 overflow-y-auto pr-2 no-scrollbar'>
+									{stallMenuLoading ? (
+										<div className='h-32 flex flex-col items-center justify-center gap-3 text-slate-400'>
+											<div className='w-6 h-6 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin'></div>
+											<span className='font-black text-[9px] uppercase tracking-widest'>Đang tải menu...</span>
+										</div>
+									) : stallMenu.length === 0 ? (
+										<div className='h-32 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-4xl text-slate-400 font-bold'>
+											<p className='text-xs uppercase tracking-widest'>Gian hàng chưa có thực đơn</p>
+										</div>
+									) : (
+										<div className='space-y-4'>
+											{stallMenu.map((item) => (
+												<div key={item.id} className='bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 hover:border-emerald-200 transition-all group'>
+													<div className='w-16 h-16 rounded-2xl overflow-hidden shrink-0 shadow-inner group-hover:scale-110 transition-transform'>
+														<img src={item.image} alt='' className='w-full h-full object-cover' />
+													</div>
+													<div className='flex-1 min-w-0'>
+														<h4 className='font-black text-slate-900 uppercase italic tracking-tight line-clamp-1'>{item.name}</h4>
+														<p className='text-[10px] text-slate-400 font-bold truncate pr-4'>{item.description}</p>
+													</div>
+													<div className='text-right'>
+														<div className='font-black text-indigo-600 italic tracking-tighter text-lg'>
+															{item.price.toLocaleString('vi-VN')}
+															<span className='text-xs ml-1'>đ</span>
+														</div>
+														<div className={`text-[9px] font-black uppercase tracking-widest ${item.isAvailable ? 'text-emerald-500' : 'text-rose-400'}`}>
+															{item.isAvailable ? 'Có sẵn' : 'Hết món'}
+														</div>
+													</div>
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+							</section>
+						</div>
+
+						{/* Footer */}
+						<div className='p-8 pt-0 mt-auto'>
+							<div className='flex gap-4'>
+								<button
+									onClick={() => handleToggleActive(selectedStall)}
+									className={`flex-1 ${selectedStall.isActive ? 'bg-rose-600' : 'bg-emerald-600'} text-white py-5 rounded-4xl font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all text-xs cursor-pointer`}
+								>
+									{selectedStall.isActive ? 'Hủy kích hoạt gian hàng' : 'Kích hoạt gian hàng'}
+								</button>
+								<button
+									onClick={() => setIsStallDetailOpen(false)}
+									className='px-10 bg-slate-900 text-white rounded-4xl font-black uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 transition-all text-xs cursor-pointer'
+								>
+									Đóng
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Vendor Info Modal */}
 			{isVendorModalOpen && (
@@ -336,7 +620,7 @@ export default function AdminDashboard() {
 						className='absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300'
 						onClick={() => setIsVendorModalOpen(false)}
 					></div>
-					<div className='relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300'>
+					<div className='relative bg-white w-full max-w-lg rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300'>
 						<div className='p-1 bg-orange-500'></div>
 						<div className='p-8'>
 							<div className='flex justify-between items-center mb-8'>

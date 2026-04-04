@@ -9,7 +9,7 @@ import {
 	useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, Utensils } from 'lucide-react';
+import { Navigation, Utensils, VolumeX, Play } from 'lucide-react';
 import type { Stall } from '../../types/stall.types';
 
 interface MapContentProps {
@@ -28,6 +28,9 @@ interface MapContentProps {
 	createStallIcon: (stall: Stall, isActive: boolean) => L.DivIcon;
 	markerRefs: React.MutableRefObject<{ [key: string]: L.Marker | null }>;
 	locateUser: () => void;
+	isAudioPlaying: boolean;
+	activeAudioId: number | null;
+	onAudioToggle: (stall: Stall) => void;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	t: (key: string, options?: any) => string;
 }
@@ -35,7 +38,7 @@ interface MapContentProps {
 function MapController({ center }: { center: [number, number] }) {
 	const map = useMap();
 	React.useEffect(() => {
-		map.flyTo(center, 17, { animate: true, duration: 1.5 });
+		map.flyTo(center, 21, { animate: true, duration: 1.5 });
 	}, [center, map]);
 	return null;
 }
@@ -64,6 +67,9 @@ const MapContent: React.FC<MapContentProps> = ({
 	createStallIcon,
 	markerRefs,
 	locateUser,
+	isAudioPlaying,
+	activeAudioId,
+	onAudioToggle,
 	t,
 }) => {
 	const currentUserLoc = userLoc;
@@ -78,9 +84,10 @@ const MapContent: React.FC<MapContentProps> = ({
 			</button>
 			<MapContainer
 				center={mapCenter}
-				zoom={16}
+				zoom={20}
 				className='w-full h-full'
 				zoomControl={false}
+				maxZoom={24}
 			>
 				<TileLayer
 					attribution='&copy; <a href="https://carto.com/">Carto</a>'
@@ -157,9 +164,22 @@ const MapContent: React.FC<MapContentProps> = ({
 										<div className='flex gap-2 font-bold'>
 											<button
 												onClick={() => handleOpenModal(stall)}
-												className='flex-1 cursor-pointer bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95'
+												className='flex-1 cursor-pointer bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95'
 											>
 												<Utensils size={14} /> {t('view_menu')}
+											</button>
+											<button
+												onClick={() => onAudioToggle(stall)}
+												className={`
+													flex-1 cursor-pointer text-white text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95
+													${isAudioPlaying && activeAudioId === stall.id ? 'bg-rose-600 hover:bg-rose-700' : 'bg-orange-600 hover:bg-orange-700'}
+												`}
+											>
+												{isAudioPlaying && activeAudioId === stall.id ? (
+													<><VolumeX size={14} /> Dừng nghe</>
+												) : (
+													<><Play size={14} /> Nghe audio</>
+												)}
 											</button>
 										</div>
 									</div>

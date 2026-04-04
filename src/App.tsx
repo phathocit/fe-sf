@@ -9,7 +9,6 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import VendorLayout from './layouts/VendorLayout';
 import VendorMenu from './pages/vendor/VendorMenu';
 import VendorSettings from './pages/vendor/VendorSettings';
-import VendorAnalytics from './pages/vendor/VendorAnalytics';
 import AuthPage from './pages/AuthPage';
 import Forbidden from './pages/error/Forbidden';
 
@@ -47,7 +46,7 @@ function App() {
 						<Route index element={<Navigate to='/vendor/menu' replace />} />
 						<Route path='menu' element={<VendorMenu />} />
 						<Route path='settings' element={<VendorSettings />} />
-						<Route path='analytics' element={<VendorAnalytics />} />
+						<Route path='settings' element={<VendorSettings />} />
 					</Route>
 
 					{/* Public Routes with Navbar */}

@@ -42,7 +42,7 @@ export default function VendorLayout() {
 
 	if (isLoading) return <VendorLoading />;
 	if (isPending) return <VendorPending onLogout={handleLogout} />;
-	
+
 	if (!stall) {
 		return (
 			<div className='h-screen flex flex-col items-center justify-center bg-slate-950 p-10 text-center'>
@@ -63,9 +63,8 @@ export default function VendorLayout() {
 	}
 
 	// Xác định activeTab dựa trên pathname
-	const getActiveTab = () => {
+	const getActiveTab = (): 'menu' | 'settings' => {
 		if (location.pathname.includes('/vendor/settings')) return 'settings';
-		if (location.pathname.includes('/vendor/analytics')) return 'analytics';
 		return 'menu';
 	};
 

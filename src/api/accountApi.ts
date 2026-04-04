@@ -9,6 +9,9 @@ const accountApi = {
 	getAll: (): Promise<ApiResponse<Account[]>> => {
 		return axiosClient.get('/accounts');
 	},
+	update: (id: string | number, data: Partial<Account>): Promise<ApiResponse<Account>> => {
+		return axiosClient.put(`/accounts/${id}`, data);
+	},
 };
 
 export default accountApi;

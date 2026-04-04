@@ -3,7 +3,10 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
-import { Loader2, Menu, X } from 'lucide-react';
+import { Loader2, Menu, X, Volume2 } from 'lucide-react';
+import audioApi from '../api/audioApi';
+
+import { toast } from 'react-toastify';
 
 import stallApi from '../api/stallApi';
 import foodApi from '../api/foodApi';
@@ -14,7 +17,8 @@ import type { Food } from '../types/food.types';
 import MapSidebar from '../components/map/MapSidebar';
 import MapContent from '../components/map/MapContent';
 import MenuModal from '../components/map/MenuModal';
-import MapOverlay from '../components/map/MapOverlay';
+import GpsSimulator from '../components/map/GpsSimulator';
+import { Target } from 'lucide-react';
 
 // Icons
 const userIcon = L.divIcon({
@@ -61,8 +65,12 @@ export default function MapPage() {
 	const [modalLoading, setModalLoading] = useState(false);
 	const [geoError, setGeoError] = useState('');
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+	const [isGpsSimOpen, setIsGpsSimOpen] = useState(false);
+	const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
 	const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
+	const audioRef = useRef<HTMLAudioElement | null>(null);
+	const heardStalls = useRef<Set<number>>(new Set());
 	const geofenceRadius = 25;
 	const voiceTourEnabled = true;
 
@@ -203,10 +211,23 @@ export default function MapPage() {
 			if (activeAudioId !== null) setActiveAudioId(null);
 			return;
 		}
+
 		const stallInside = stalls.find((s) => isInsideGeofence(getCoords(s)));
-		if (stallInside && activeAudioId !== stallInside.id) {
-			setActiveAudioId(stallInside.id);
-			console.log(`UI Toggle: Playing intro for ${stallInside.name}`);
+		
+		if (stallInside) {
+			if (activeAudioId !== stallInside.id) {
+				setActiveAudioId(stallInside.id);
+				
+				// Automatically play audio if inside zone and not already heard in this 'visit'
+				if (!heardStalls.current.has(stallInside.id)) {
+					handlePlayStallAudio(stallInside);
+				}
+			}
+		} else {
+			if (activeAudioId !== null) {
+				setActiveAudioId(null);
+				// Optionally stop audio when leaving zone, but usually we let it finish
+			}
 		}
 	}, [
 		userLoc,
@@ -216,6 +237,47 @@ export default function MapPage() {
 		stalls,
 		getCoords,
 	]);
+
+	const handlePlayStallAudio = async (stall: Stall) => {
+		try {
+			setIsAudioPlaying(true);
+			const res = await audioApi.getStallAudio(stall.id);
+			
+			if (res.result && res.result.audioUrl && res.result.status === 'COMPLETED') {
+				if (!audioRef.current) {
+					audioRef.current = new Audio();
+					audioRef.current.onended = () => {
+						setIsAudioPlaying(false);
+					};
+				}
+				
+				audioRef.current.src = res.result.audioUrl;
+				audioRef.current.play().catch(e => {
+					console.warn('Audio auto-play blocked by browser. User interaction needed.', e);
+					toast.info('Click để nghe thuyết minh về ' + stall.name);
+				});
+				
+				heardStalls.current.add(stall.id);
+			} else {
+				toast.info(`Gian hàng ${stall.name} hiện chưa có nội dung audio thuyết minh.`);
+				setIsAudioPlaying(false);
+			}
+		} catch (error) {
+			console.error('Failed to play stall audio:', error);
+			toast.error('Không thể kết nối đến hệ thống audio. Vui lòng thử lại sau.');
+			setIsAudioPlaying(false);
+		}
+	};
+	const handleAudioToggle = useCallback((stall: Stall) => {
+		if (isAudioPlaying && activeAudioId === stall.id) {
+			if (audioRef.current) {
+				audioRef.current.pause();
+				setIsAudioPlaying(false);
+			}
+		} else {
+			handlePlayStallAudio(stall);
+		}
+	}, [isAudioPlaying, activeAudioId]);
 
 	// Markers sync effect
 	useEffect(() => {
@@ -230,10 +292,6 @@ export default function MapPage() {
 		}
 	}, [activeStallId]);
 
-	// Nearby Alert Memo
-	const nearbyStall = useMemo(() => {
-		return stalls.find((s) => isInsideGeofence(getCoords(s))) || null;
-	}, [stalls, isInsideGeofence, getCoords]);
 
 	if (loading) {
 		return (
@@ -255,6 +313,42 @@ export default function MapPage() {
 			>
 				{isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
 			</button>
+
+			<button
+				onClick={() => setIsGpsSimOpen(!isGpsSimOpen)}
+				className='fixed top-6 right-6 z-500 w-12 h-12 bg-orange-600 text-white rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 active:scale-95 transition-all hover:bg-slate-900 group'
+				title="GPS Simulator"
+			>
+				<Target size={24} />
+				<div className='absolute right-full mr-4 bg-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/10 whitespace-nowrap pointer-events-none'>
+					Giả lập tọa độ GPS
+				</div>
+			</button>
+
+			{isAudioPlaying && activeAudioId && (
+				<div className='fixed bottom-6 left-1/2 -translate-x-1/2 z-500 bg-slate-950/90 backdrop-blur-md px-6 py-4 rounded-3xl border border-white/10 flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-10 duration-500'>
+					<div className='w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center animate-pulse'>
+						<Volume2 size={24} className='text-white' />
+					</div>
+					<div>
+						<div className='text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5'>Đang thuyết minh</div>
+						<div className='text-white font-black italic uppercase tracking-tight text-sm'>
+							{stalls.find(s => s.id === activeAudioId)?.name}
+						</div>
+					</div>
+					<button 
+						onClick={() => {
+							if (audioRef.current) {
+								audioRef.current.pause();
+								setIsAudioPlaying(false);
+							}
+						}}
+						className='ml-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-rose-600 transition-all cursor-pointer'
+					>
+						<X size={16} />
+					</button>
+				</div>
+			)}
 
 			<div 
 				className={`
@@ -304,7 +398,21 @@ export default function MapPage() {
 					createStallIcon={createStallIcon}
 					markerRefs={markerRefs}
 					locateUser={locateUser}
+					isAudioPlaying={isAudioPlaying}
+					activeAudioId={activeAudioId}
+					onAudioToggle={handleAudioToggle}
 					t={t}
+				/>
+				<GpsSimulator 
+					userLoc={userLoc}
+					onLocChange={(loc) => {
+						setUserLoc(loc);
+						setMapCenter(loc);
+						setGeoError('');
+					}}
+					stalls={stalls}
+					isOpen={isGpsSimOpen}
+					onClose={() => setIsGpsSimOpen(false)}
 				/>
 			</div>
 
@@ -315,8 +423,6 @@ export default function MapPage() {
 				t={t}
 				onClose={() => setSelectedStallForModal(null)}
 			/>
-
-			<MapOverlay stall={nearbyStall} t={t} onAction={handleStallClick} />
 		</div>
 	);
 }
