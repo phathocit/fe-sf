@@ -90,9 +90,12 @@ export default function VendorSettings() {
 			// Gọi API lấy audio (API này sẽ tự kích hoạt tiến trình xử lý AI nếu cần)
 			let status = 'PROCESSING';
 			let attempts = 0;
-			const maxAttempts = 15;
+			const maxAttempts = 2;
 
-			while ((status === 'PROCESSING' || status === 'PENDING') && attempts < maxAttempts) {
+			while (
+				(status === 'PROCESSING' || status === 'PENDING') &&
+				attempts < maxAttempts
+			) {
 				const res = await audioApi.getStallAudio(stall.id, selectedAudioLang);
 				status = res.result?.status || 'ERROR';
 

@@ -1,5 +1,16 @@
 import React from 'react';
-import { Navigation, Plus, Edit, ShieldAlert, Music, Globe, Bot, Play, Square, Loader2 } from 'lucide-react';
+import {
+	Navigation,
+	Plus,
+	Edit,
+	ShieldAlert,
+	Music,
+	Globe,
+	Bot,
+	Play,
+	Square,
+	Loader2,
+} from 'lucide-react';
 import type { Stall } from '../../types/stall.types';
 import { toast } from 'react-toastify';
 import type { StallTranslation } from '../../api/audioApi';
@@ -193,14 +204,19 @@ export default function ShopSettings({
 											Ngôn ngữ Audio
 										</label>
 										<div className='relative'>
-											<Globe className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400' size={16} />
+											<Globe
+												className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400'
+												size={16}
+											/>
 											<select
 												value={selectedAudioLang}
-												onChange={(e) => onSelectedAudioLangChange(e.target.value)}
+												onChange={(e) =>
+													onSelectedAudioLangChange(e.target.value)
+												}
 												className='w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 rounded-xl font-bold text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all appearance-none cursor-pointer'
 											>
 												<option value='vi'>Tiếng Việt (Vietnamese)</option>
-												<option value='en'>Tiếng Anh (English)</option>
+												<option value='en-US'>Tiếng Anh (English)</option>
 												<option value='ko'>Tiếng Hàn (Korean)</option>
 												<option value='ja'>Tiếng Nhật (Japanese)</option>
 												<option value='zh'>Tiếng Trung (Chinese)</option>
@@ -231,7 +247,9 @@ export default function ShopSettings({
 										<button
 											type='button'
 											onClick={() => {
-												const current = translations.find(t => t.languageCode === selectedAudioLang);
+												const current = translations.find(
+													(t) => t.languageCode === selectedAudioLang,
+												);
 												onPlayAudio(current?.audioUrl);
 											}}
 											className='bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer h-[46px]'
@@ -262,7 +280,7 @@ export default function ShopSettings({
 										</div>
 										<div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
 											{translations.map((t) => (
-												<div 
+												<div
 													key={t.id}
 													className='flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm'
 												>
@@ -272,13 +290,20 @@ export default function ShopSettings({
 														</div>
 														<div>
 															<p className='text-[10px] font-black text-slate-900 uppercase'>
-																{t.languageCode === 'vi' ? 'Tiếng Việt' : 
-																 t.languageCode === 'en' ? 'Tiếng Anh' : 
-																 t.languageCode === 'ko' ? 'Tiếng Hàn' : 
-																 t.languageCode === 'ja' ? 'Tiếng Nhật' : t.languageCode}
+																{t.languageCode === 'vi'
+																	? 'Tiếng Việt'
+																	: t.languageCode === 'en'
+																		? 'Tiếng Anh'
+																		: t.languageCode === 'ko'
+																			? 'Tiếng Hàn'
+																			: t.languageCode === 'ja'
+																				? 'Tiếng Nhật'
+																				: t.languageCode}
 															</p>
 															<p className='text-[8px] font-bold text-slate-400'>
-																{t.audioStatus === 'COMPLETED' ? 'Đã sẵn sàng' : 'Đang xử lý'}
+																{t.audioStatus === 'COMPLETED'
+																	? 'Đã sẵn sàng'
+																	: 'Đang xử lý'}
 															</p>
 														</div>
 													</div>

@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapIcon, ShieldAlert, StoreIcon, HomeIcon } from 'lucide-react';
+import { MapIcon, ShieldAlert, StoreIcon, HomeIcon, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function MainLayout() {
@@ -8,16 +8,13 @@ export default function MainLayout() {
 	const { user, isAuthenticated, logout } = useAuth();
 	const location = useLocation();
 
-	const toggleLanguage = () => {
-		i18n.changeLanguage(i18n.language.startsWith('en') ? 'vi' : 'en');
-	};
 
 	const isAdmin = user?.roles?.some((r) => r.name === 'ADMIN');
 	const isVendor = user?.roles?.some((r) => r.name === 'VENDOR');
 
 	return (
 		<div className='min-h-screen bg-gray-50 flex flex-col font-sans'>
-			<header className='fixed w-full top-0 z-[100] px-4 py-4 md:px-8'>
+			<header className='fixed w-full top-0 z-100 px-4 py-4 md:px-8'>
 				<div className='max-w-7xl mx-auto rounded-full bg-slate-950/95 backdrop-blur-2xl px-6 md:px-8 py-3 md:py-4 shadow-[0_20px_50px_-15px_rgba(234,88,12,0.4)] border border-white/10 flex justify-between items-center transition-all duration-300'>
 					<Link to='/' className='cursor-pointer flex items-center gap-3 group'>
 						<div className='w-12 h-12 bg-linear-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-500/40 group-hover:scale-105 group-active:scale-95 transition-all -rotate-6 group-hover:rotate-0'>
@@ -85,13 +82,20 @@ export default function MainLayout() {
 							</div>
 						)}
 
-						<button
-							onClick={toggleLanguage}
-							className='cursor-pointer w-12 h-12 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-orange-600 transition-all font-black text-xs uppercase tracking-widest shadow-inner'
-							title={i18n.language === 'vi' ? 'English' : 'Tiếng Việt'}
-						>
-							{t('switch_lang')}
-						</button>
+						<div className='relative flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full pl-4 pr-1 py-1'>
+							<Globe className='text-orange-500' size={14} />
+							<select
+								value={i18n.language.startsWith('vi') ? 'vi' : i18n.language.startsWith('en') ? 'en' : i18n.language}
+								onChange={(e) => i18n.changeLanguage(e.target.value)}
+								className='bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-400 focus:outline-none cursor-pointer pr-4 hover:text-white transition-colors'
+							>
+								<option value='vi' className='bg-slate-900'>VI</option>
+								<option value='en' className='bg-slate-900'>EN</option>
+								<option value='ko' className='bg-slate-900'>KO</option>
+								<option value='ja' className='bg-slate-900'>JA</option>
+								<option value='zh' className='bg-slate-900'>ZH</option>
+							</select>
+						</div>
 					</div>
 				</div>
 			</header>
