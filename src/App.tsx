@@ -11,10 +11,12 @@ import VendorMenu from './pages/vendor/VendorMenu';
 import VendorSettings from './pages/vendor/VendorSettings';
 import AuthPage from './pages/AuthPage';
 import Forbidden from './pages/error/Forbidden';
-
+import ErrorPage from './pages/error/ErrorPage';
+import NotFound from './pages/error/NotFound';
 
 import { AuthProvider } from './context/AuthProvider';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ScanPage from './pages/scan/ScanPage';
 
 function App() {
 	return (
@@ -25,6 +27,7 @@ function App() {
 					<Route path='/auth' element={<AuthPage />} />
 					<Route path='/map' element={<MapPage />} />
 					<Route path='/403' element={<Forbidden />} />
+					<Route path='/error' element={<ErrorPage />} />
 
 					{/* Private Routes */}
 					<Route
@@ -54,6 +57,11 @@ function App() {
 						<Route index element={<Home />} />
 						<Route path='stall/:id' element={<StallDetail />} />
 					</Route>
+
+					<Route path='/scan' element={<ScanPage />} />
+
+					{/* Catch-all route */}
+					<Route path='*' element={<NotFound />} />
 				</Routes>
 			</BrowserRouter>
 		</AuthProvider>
