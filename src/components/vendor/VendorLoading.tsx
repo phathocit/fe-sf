@@ -1,4 +1,4 @@
-import React from 'react';
+// Component using React implicitly through JSX
 
 export default function VendorLoading() {
 	return (

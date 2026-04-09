@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, ImageOff, Edit, Search } from 'lucide-react';
 import type { Food } from '../../types/food.types';
 

@@ -3,15 +3,17 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
-import { Loader2, Menu, X, Volume2 } from 'lucide-react';
-import audioApi from '../api/audioApi';
+import { Loader2, Menu, X, Volume2, Wifi, WifiOff } from 'lucide-react';
 
 import { toast } from 'react-toastify';
 
-import stallApi from '../api/stallApi';
 import foodApi from '../api/foodApi';
+import audioApi from '../api/audioApi';
+import { offlineDB } from '../utils/offlineDB';
+import { offlineDetector } from '../utils/offlineDetector';
 import type { Stall } from '../types/stall.types';
 import type { Food } from '../types/food.types';
+import { useOfflineStalls } from '../hooks/useOfflineStalls';
 
 // Components
 import MapSidebar from '../components/map/MapSidebar';
@@ -50,9 +52,15 @@ export default function MapPage() {
 	const [searchParams] = useSearchParams();
 	const defaultCenter: [number, number] = [10.7601, 106.7042];
 
+	// Offline Stalls Hook - Auto handles cache & offline
+	const { 
+		stalls, 
+		loading, 
+		isOffline, 
+		isCached 
+	} = useOfflineStalls({ streetId: 1, autoSync: true });
+
 	// States
-	const [stalls, setStalls] = useState<Stall[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
 	const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
 	const [activeStallId, setActiveStallId] = useState<number | null>(null);
@@ -74,20 +82,14 @@ export default function MapPage() {
 	const geofenceRadius = 25;
 	const voiceTourEnabled = true;
 
-	// Fetch Data
+	// Show notification if offline with cached data
 	useEffect(() => {
-		const fetchStalls = async () => {
-			try {
-				const response = await stallApi.getAllActive();
-				setStalls(response.result);
-			} catch (error) {
-				console.error('Error fetching stalls:', error);
-			} finally {
-				setLoading(false);
-			}
-		};
-		fetchStalls();
-	}, []);
+		if (isOffline && isCached) {
+			toast.info('📍 Offline mode - Using cached stall data', {
+				autoClose: 3000,
+			});
+		}
+	}, [isOffline, isCached]);
 
 	// Search & Filter Memo
 	const categories = useMemo(
@@ -161,14 +163,28 @@ export default function MapPage() {
 		setSelectedStallForModal(stall);
 		setModalLoading(true);
 		try {
-			const response = await foodApi.getByStallId(stall.id);
-			setModalMenu(response.result.filter((item: Food) => item.isAvailable));
+			if (isOffline) {
+				// Offline: fetch from cache
+				const cachedFoods = await (async () => {
+					const { offlineDB } = await import('../utils/offlineDB');
+					return offlineDB.getFoodsByStall(stall.id);
+				})();
+				setModalMenu(cachedFoods.filter((item) => item.isAvailable) as unknown as Food[]);
+				if (cachedFoods.length === 0) {
+					toast.warn('No cached menu data for this stall');
+				}
+			} else {
+				// Online: fetch from API
+				const response = await foodApi.getByStallId(stall.id);
+				setModalMenu(response.result.filter((item: Food) => item.isAvailable));
+			}
 		} catch (error) {
 			console.error('Error fetching modal menu:', error);
+			toast.error('Failed to load menu');
 		} finally {
 			setModalLoading(false);
 		}
-	}, []);
+	}, [isOffline]);
 
 	// Geolocation Effect
 	useEffect(() => {
@@ -241,22 +257,61 @@ export default function MapPage() {
 	const handlePlayStallAudio = async (stall: Stall) => {
 		try {
 			setIsAudioPlaying(true);
+
+			// Try offline cache first if offline
+			if (offlineDetector.isOffline()) {
+				const cachedAudio = await offlineDB.getAudio(stall.id, 'vi');
+				if (cachedAudio && cachedAudio.status === 'COMPLETED') {
+					if (!audioRef.current) {
+						audioRef.current = new Audio();
+						audioRef.current.onended = () => {
+							setIsAudioPlaying(false);
+						};
+					}
+
+					audioRef.current.src = cachedAudio.audioUrl;
+					audioRef.current.play().catch(e => {
+						console.warn('Audio auto-play blocked by browser.', e);
+						toast.info('Click để nghe thuyết minh về ' + stall.name);
+					});
+
+					heardStalls.current.add(stall.id);
+					return;
+				}
+				// No cache available offline
+				toast.error('Audio chưa được cache. Vui lòng kết nối mạng để tải.');
+				setIsAudioPlaying(false);
+				return;
+			}
+
+			// Online - fetch from API
 			const res = await audioApi.getStallAudio(stall.id);
-			
+
 			if (res.result && res.result.audioUrl && res.result.status === 'COMPLETED') {
+				// Cache the audio for offline use
+				await offlineDB.saveAudio(stall.id, 'vi', {
+					stallId: stall.id,
+					language: 'vi',
+					audioUrl: res.result.audioUrl,
+					audioHash: res.result.audioHash || '',
+					status: res.result.status,
+					cachedAt: Date.now(),
+					fileSize: res.result.fileSize,
+				});
+
 				if (!audioRef.current) {
 					audioRef.current = new Audio();
 					audioRef.current.onended = () => {
 						setIsAudioPlaying(false);
 					};
 				}
-				
+
 				audioRef.current.src = res.result.audioUrl;
 				audioRef.current.play().catch(e => {
 					console.warn('Audio auto-play blocked by browser. User interaction needed.', e);
 					toast.info('Click để nghe thuyết minh về ' + stall.name);
 				});
-				
+
 				heardStalls.current.add(stall.id);
 			} else {
 				toast.info(`Gian hàng ${stall.name} hiện chưa có nội dung audio thuyết minh.`);
@@ -264,6 +319,30 @@ export default function MapPage() {
 			}
 		} catch (error) {
 			console.error('Failed to play stall audio:', error);
+			// Try to fallback to cached audio if API fails
+			try {
+				const cachedAudio = await offlineDB.getAudio(stall.id, 'vi');
+				if (cachedAudio && cachedAudio.status === 'COMPLETED') {
+					if (!audioRef.current) {
+						audioRef.current = new Audio();
+						audioRef.current.onended = () => {
+							setIsAudioPlaying(false);
+						};
+					}
+
+					audioRef.current.src = cachedAudio.audioUrl;
+					audioRef.current.play().catch(e => {
+						console.warn('Audio auto-play blocked.', e);
+					});
+
+					heardStalls.current.add(stall.id);
+					toast.info('Đang phát audio từ bộ nhớ cache');
+					return;
+				}
+			} catch (cacheError) {
+				console.error('Cache fallback error:', cacheError);
+			}
+
 			toast.error('Không thể kết nối đến hệ thống audio. Vui lòng thử lại sau.');
 			setIsAudioPlaying(false);
 		}
@@ -306,6 +385,30 @@ export default function MapPage() {
 
 	return (
 		<div className='w-full h-screen relative flex flex-col md:flex-row bg-slate-50 overflow-hidden'>
+			{/* Offline Status Indicator */}
+			{isOffline && (
+				<div className='fixed top-6 left-1/2 -translate-x-1/2 z-500 bg-rose-600/90 backdrop-blur-md px-6 py-3 rounded-full border border-rose-400/50 flex items-center gap-3 shadow-2xl animate-pulse'>
+					<WifiOff size={20} className='text-white flex-shrink-0' />
+					<div>
+						<div className='text-[10px] font-black text-white uppercase tracking-widest'>Offline Mode</div>
+						<div className='text-white/90 font-bold text-sm'>
+							{isCached ? '📦 Using cached data' : 'No data available'}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Online Status Indicator */}
+			{!isOffline && isCached && (
+				<div className='fixed top-6 left-1/2 -translate-x-1/2 z-500 bg-emerald-600/90 backdrop-blur-md px-6 py-3 rounded-full border border-emerald-400/50 flex items-center gap-3 shadow-2xl animate-pulse'>
+					<Wifi size={20} className='text-white flex-shrink-0' />
+					<div>
+						<div className='text-[10px] font-black text-white uppercase tracking-widest'>Synced</div>
+						<div className='text-white/90 font-bold text-sm'>Fresh data loaded</div>
+					</div>
+				</div>
+			)}
+
 			{/* Mobile Toggle Button */}
 			<button
 				onClick={() => setIsSidebarOpen(!isSidebarOpen)}

@@ -6,8 +6,8 @@ import type { Account } from '../../types/auth.types';
 interface VendorSidebarProps {
 	stall: Stall;
 	account: Account | null;
-	activeTab: 'menu' | 'settings';
-	onTabChange?: (tab: 'menu' | 'settings') => void;
+	activeTab: 'menu' | 'settings' | 'analytics';
+	onTabChange?: (tab: 'menu' | 'settings' | 'analytics') => void;
 	onLogout: () => void;
 }
 

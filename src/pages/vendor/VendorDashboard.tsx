@@ -33,6 +33,9 @@ export default function VendorDashboard() {
 	const [isLocModalOpen, setIsLocModalOpen] = useState(false);
 	const [currentItem, setCurrentItem] = useState<Partial<Food> | null>(null);
 	const [tmpStall, setTmpStall] = useState<Partial<Stall>>({});
+	const [selectedAudioLang, setSelectedAudioLang] = useState('vi');
+	const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+	const [isPlaying, setIsPlaying] = useState(false);
 
 	useEffect(() => {
 		if (account) {
@@ -229,6 +232,13 @@ export default function VendorDashboard() {
 						onStallChange={setTmpStall}
 						onSaveStall={handleSaveStall}
 						onOpenLocModal={() => setIsLocModalOpen(true)}
+						translations={[]}
+						selectedAudioLang={selectedAudioLang}
+						onSelectedAudioLangChange={setSelectedAudioLang}
+						onGenerateAudio={() => setIsGeneratingAudio(true)}
+						isGeneratingAudio={isGeneratingAudio}
+						onPlayAudio={() => setIsPlaying(!isPlaying)}
+						isPlaying={isPlaying}
 					/>
 				)}
 			</div>

@@ -17,7 +17,8 @@ export default function Home() {
 	useEffect(() => {
 		const fetchStalls = async () => {
 			try {
-				const response = await stallApi.getByStreetId(1);
+				// Use getAllActive() for public access instead of getByStreetId
+				const response = await stallApi.getAllActive();
 				setStalls(response.result);
 			} catch (error) {
 				console.error('Error fetching stalls:', error);

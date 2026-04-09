@@ -28,12 +28,12 @@ export default function AuthPage() {
 		setError(null);
 
 		const formData = new FormData(e.currentTarget);
-		const email = formData.get('email') as string;
+		const userName = formData.get('email') as string; // Using email field as username
 		const password = formData.get('password') as string;
 
 		try {
 			if (isLogin) {
-				const response = await authApi.loginEmail({ email, password });
+				const response = await authApi.login({ userName, password });
 				if (response.code === 0) {
 					login(response.result.token, response.result.account);
 
@@ -49,6 +49,7 @@ export default function AuthPage() {
 			} else {
 				const ownerName = formData.get('ownerName') as string;
 				const stallName = formData.get('stallName') as string;
+				const email = formData.get('email') as string;
 
 				await authApi.registerVendor({
 					ownerName,

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Users, TrendingUp, Volume2, Navigation, Activity } from 'lucide-react';
 
 export default function Analytics() {
