@@ -1,7 +1,7 @@
-import { Store, Clock, Users, LogOut, QrCode } from 'lucide-react';
+import { Store, Clock, Users, LogOut, QrCode, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export type AdminTab = 'stalls' | 'pending' | 'users' | 'qrcodes';
+export type AdminTab = 'stalls' | 'pending' | 'users' | 'qrcodes' | 'pois';
 
 interface AdminSidebarProps {
 	activeTab: AdminTab;
@@ -94,6 +94,20 @@ export default function AdminSidebar({
 						className={activeTab === 'qrcodes' ? 'text-orange-500' : ''}
 					/>{' '}
 					Quản lý QR Code
+				</button>
+				<button
+					onClick={() => handleTabClick('pois')}
+					className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all cursor-pointer ${
+						activeTab === 'pois'
+							? 'bg-white/10 border border-white/10 text-white shadow-xl'
+							: 'text-slate-400 hover:text-white hover:bg-white/5'
+					}`}
+				>
+					<MapPin
+						size={20}
+						className={activeTab === 'pois' ? 'text-orange-500' : ''}
+					/>{' '}
+					Quản lý POI
 				</button>
 			</nav>
 

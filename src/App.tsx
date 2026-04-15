@@ -1,11 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import StallDetail from './pages/StallDetail';
 import MapPage from './pages/MapPage';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import VendorLayout from './layouts/VendorLayout';
 import VendorMenu from './pages/vendor/VendorMenu';
 import VendorSettings from './pages/vendor/VendorSettings';
@@ -18,6 +17,13 @@ import { AuthProvider } from './context/AuthProvider';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ScanPage from './pages/scan/ScanPage';
 
+// New Admin Sub-pages
+import StallsPage from './pages/admin/StallsPage';
+import PendingPage from './pages/admin/PendingPage';
+import UsersPage from './pages/admin/UsersPage';
+import QRCodesPage from './pages/admin/QRCodesPage';
+import POIPage from './pages/admin/POIPage';
+
 function App() {
 	return (
 		<AuthProvider>
@@ -29,15 +35,24 @@ function App() {
 					<Route path='/403' element={<Forbidden />} />
 					<Route path='/error' element={<ErrorPage />} />
 
-					{/* Private Routes */}
+					{/* Private Admin Routes */}
 					<Route
-						path='/admin/*'
+						path='/admin'
 						element={
 							<ProtectedRoute allowedRoles={['ADMIN']}>
-								<AdminDashboard />
+								<Outlet />
 							</ProtectedRoute>
 						}
-					/>
+					>
+						<Route index element={<Navigate to='/admin/stalls' replace />} />
+						<Route path='stalls' element={<StallsPage />} />
+						<Route path='pending' element={<PendingPage />} />
+						<Route path='users' element={<UsersPage />} />
+						<Route path='qrcodes' element={<QRCodesPage />} />
+						<Route path='pois' element={<POIPage />} />
+					</Route>
+
+					{/* Private Vendor Routes */}
 					<Route
 						path='/vendor'
 						element={
@@ -48,7 +63,6 @@ function App() {
 					>
 						<Route index element={<Navigate to='/vendor/menu' replace />} />
 						<Route path='menu' element={<VendorMenu />} />
-						<Route path='settings' element={<VendorSettings />} />
 						<Route path='settings' element={<VendorSettings />} />
 					</Route>
 

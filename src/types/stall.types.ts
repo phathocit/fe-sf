@@ -12,6 +12,7 @@ export interface Stall {
 	isActive: boolean;
 	createdAt: string;
 	updatedAt: string;
+	radius?: number;
 	coordinates?: [number, number];
 	imageFile?: File;
 }
