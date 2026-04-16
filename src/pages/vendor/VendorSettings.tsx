@@ -60,6 +60,7 @@ export default function VendorSettings() {
 			setIsPlaying(false);
 		} else {
 			if (!audioRef.current) {
+				console.log('>>>>>>>>>>>.', url);
 				audioRef.current = new Audio(url);
 				audioRef.current.onended = () => setIsPlaying(false);
 			} else {
