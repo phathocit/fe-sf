@@ -4,11 +4,17 @@ import stallApi from '../../api/stallApi';
 import { type Stall } from '../../types/stall.types';
 import { toast } from 'react-toastify';
 import AdminLayout from '../../layouts/AdminLayout';
+import POIModal from '../../components/admin/modals/POIModal';
 
 export default function POIPage() {
 	const [stalls, setStalls] = useState<Stall[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState('');
+
+	// Modal state
+	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [selectedStall, setSelectedStall] = useState<Stall | null>(null);
+	const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
 
 	useEffect(() => {
 		fetchPOIs();
@@ -25,6 +31,26 @@ export default function POIPage() {
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const handleUpdatePOI = async (id: number, data: Partial<Stall>) => {
+		try {
+			const res = await stallApi.update(id, data);
+			if (res.result) {
+				fetchPOIs();
+                return res.result;
+			}
+		} catch (error) {
+			console.error(error);
+			toast.error('Cập nhật thất bại');
+            throw error;
+		}
+	};
+
+	const openModal = (stall: Stall, mode: 'view' | 'edit') => {
+		setSelectedStall(stall);
+		setModalMode(mode);
+		setIsModalOpen(true);
 	};
 
 	const filteredData = useMemo(() => {
@@ -129,14 +155,14 @@ export default function POIPage() {
 										<td className='p-6 text-right pr-10'>
 											<div className='flex justify-end gap-2'>
 												<button
-													onClick={() => window.open(`https://www.google.com/maps?q=${stall.latitude},${stall.longitude}`, '_blank')}
+													onClick={() => openModal(stall, 'view')}
 													className='cursor-pointer w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm'
 													title='Xem trên bản đồ'
 												>
 													<Navigation size={18} />
 												</button>
 												<button
-													onClick={() => toast.info('Tính năng cập nhật tọa độ sắp ra mắt')}
+													onClick={() => openModal(stall, 'edit')}
 													className='cursor-pointer w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-orange-600 hover:text-white transition-all shadow-sm'
 													title='Chỉnh sửa POI'
 												>
@@ -158,6 +184,14 @@ export default function POIPage() {
 					</table>
 				</div>
 			</div>
+
+			<POIModal 
+				isOpen={isModalOpen}
+				onClose={() => setIsModalOpen(false)}
+				stall={selectedStall}
+				mode={modalMode}
+				onSave={handleUpdatePOI}
+			/>
 		</AdminLayout>
 	);
 }

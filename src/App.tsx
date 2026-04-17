@@ -16,8 +16,10 @@ import NotFound from './pages/error/NotFound';
 import { AuthProvider } from './context/AuthProvider';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ScanPage from './pages/scan/ScanPage';
+import VisitLogger from './components/VisitLogger';
 
 // New Admin Sub-pages
+import DashboardPage from './pages/admin/DashboardPage';
 import StallsPage from './pages/admin/StallsPage';
 import PendingPage from './pages/admin/PendingPage';
 import UsersPage from './pages/admin/UsersPage';
@@ -28,6 +30,7 @@ function App() {
 	return (
 		<AuthProvider>
 			<BrowserRouter>
+				<VisitLogger />
 				<ToastContainer position='top-right' autoClose={3000} />
 				<Routes>
 					<Route path='/auth' element={<AuthPage />} />
@@ -44,7 +47,8 @@ function App() {
 							</ProtectedRoute>
 						}
 					>
-						<Route index element={<Navigate to='/admin/stalls' replace />} />
+						<Route index element={<Navigate to='/admin/dashboard' replace />} />
+						<Route path='dashboard' element={<DashboardPage />} />
 						<Route path='stalls' element={<StallsPage />} />
 						<Route path='pending' element={<PendingPage />} />
 						<Route path='users' element={<UsersPage />} />
