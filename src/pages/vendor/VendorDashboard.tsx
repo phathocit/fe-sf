@@ -33,7 +33,7 @@ export default function VendorDashboard() {
   const [isLocModalOpen, setIsLocModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<Partial<Food> | null>(null);
   const [tmpStall, setTmpStall] = useState<Partial<Stall>>({});
-  const [translations, setTranslations] = useState<StallTranslation[]>([]);
+  const [translations] = useState<StallTranslation[]>([]);
   const [selectedAudioLang, setSelectedAudioLang] = useState("vi");
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
