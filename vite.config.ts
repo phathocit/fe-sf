@@ -8,8 +8,13 @@ export default defineConfig({
 	server: {
 		host: true, // hoặc '0.0.0.0'
 		port: 5173,
-		allowedHosts: [
-			'b5c6-2402-800-63b8-fc74-7d0d-20cb-9020-69c1.ngrok-free.app',
-		],
+		allowedHosts: true
 	},
+	proxy: {
+      '/api': {
+        target: 'http://localhost:8080', 
+        changeOrigin: true,
+        secure: false,
+      }
+	}
 });
