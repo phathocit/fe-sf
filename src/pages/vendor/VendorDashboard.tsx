@@ -33,7 +33,7 @@ export default function VendorDashboard() {
   const [isLocModalOpen, setIsLocModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<Partial<Food> | null>(null);
   const [tmpStall, setTmpStall] = useState<Partial<Stall>>({});
-  const [translations] = useState<StallTranslation[]>([]);
+  const [translations, setTranslations] = useState<StallTranslation[]>([]);
   const [selectedAudioLang, setSelectedAudioLang] = useState("vi");
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -187,29 +187,41 @@ export default function VendorDashboard() {
     }
   };
 
-  const handleGenerateAudio = async () => {
-    try {
-      setIsGeneratingAudio(true);
-
-      // TODO: gọi API BE
-      console.log("Generating audio...");
-    } finally {
-      setIsGeneratingAudio(false);
-    }
-  };
-
   const handlePlayAudio = (url?: string) => {
-    if (!url) return;
+    if (!url) {
+      toast.warning("Không tìm thấy đường dẫn âm thanh");
+      return;
+    }
 
     const audio = new Audio(url);
     setIsPlaying(true);
 
     audio.onended = () => setIsPlaying(false);
+    audio.onerror = () => {
+      setIsPlaying(false);
+      toast.error("Không thể phát âm thanh này");
+    };
     audio.play();
+  };
+
+  const handleGenerateAudio = async () => {
+    if (!stall?.id) return;
+    try {
+      setIsGeneratingAudio(true);
+      // Giả sử bạn gọi API ở đây:
+      // await audioApi.generate(stall.id, selectedAudioLang);
+      toast.info("Yêu cầu tạo âm thanh đang được xử lý...");
+    } catch (error) {
+      console.error("Failed to generate audio:", error);
+      toast.error("Có lỗi xảy ra khi tạo âm thanh!");
+    } finally {
+      setIsGeneratingAudio(false);
+    }
   };
 
   if (isLoading) return <VendorLoading />;
   if (isPending) return <VendorPending onLogout={handleLogout} />;
+
   if (!stall) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-950 p-10 text-center">
@@ -258,7 +270,9 @@ export default function VendorDashboard() {
             onEditItem={handleOpenModal}
           />
         )}
-        {activeTab === "analytics" && <Analytics />}
+
+        {activeTab === "analytics" && <Analytics stallId={stall.id} />}
+
         {activeTab === "settings" && (
           <ShopSettings
             tmpStall={tmpStall}

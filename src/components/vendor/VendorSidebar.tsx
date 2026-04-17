@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { PackageSearch, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Stall } from "../../types/stall.types";
@@ -9,6 +10,19 @@ interface VendorSidebarProps {
   activeTab: "menu" | "settings" | "analytics";
   onTabChange?: (tab: "menu" | "settings") => void;
   onLogout: () => void;
+=======
+import { PackageSearch, Settings, LogOut, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import type { Stall } from '../../types/stall.types';
+import type { Account } from '../../types/auth.types';
+
+interface VendorSidebarProps {
+	stall: Stall;
+	account: Account | null;
+	activeTab: 'menu' | 'settings' | 'analytics';
+	onTabChange?: (tab: 'menu' | 'settings' | 'analytics') => void;
+	onLogout: () => void;
+>>>>>>> da15fdd10326fb9bf41f33b8769c8cb8be102e7d
 }
 
 export default function VendorSidebar({
@@ -20,6 +34,7 @@ export default function VendorSidebar({
 }: VendorSidebarProps) {
   const navigate = useNavigate();
 
+<<<<<<< HEAD
   const handleTabClick = (tab: "menu" | "settings") => {
     if (onTabChange) {
       onTabChange(tab);
@@ -27,6 +42,15 @@ export default function VendorSidebar({
       navigate(`/vendor/${tab}`);
     }
   };
+=======
+	const handleTabClick = (tab: 'menu' | 'settings' | 'analytics') => {
+		if (onTabChange) {
+			onTabChange(tab);
+		} else {
+			navigate(`/vendor/${tab}`);
+		}
+	};
+>>>>>>> da15fdd10326fb9bf41f33b8769c8cb8be102e7d
 
   return (
     <div className="w-80 bg-orange-600 text-white flex flex-col py-10 px-6 shadow-2xl relative z-20 overflow-hidden shrink-0">
@@ -53,6 +77,7 @@ export default function VendorSidebar({
         </div>
       </div>
 
+<<<<<<< HEAD
       <nav className="flex-1 space-y-2 relative z-10">
         <button
           onClick={() => handleTabClick("menu")}
@@ -75,6 +100,42 @@ export default function VendorSidebar({
           <Settings size={20} /> Cài đặt shop
         </button>
       </nav>
+=======
+			<nav className='flex-1 space-y-2 relative z-10'>
+				<button
+					onClick={() => handleTabClick('menu')}
+					className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs cursor-pointer ${
+						activeTab === 'menu'
+							? 'bg-white text-orange-600 shadow-xl scale-105'
+							: 'text-white/70 hover:text-white hover:bg-white/10'
+					}`}
+				>
+					<PackageSearch size={20} /> Quản lý Thực đơn
+				</button>
+
+				<button
+					onClick={() => handleTabClick('analytics')}
+					className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs mt-4 cursor-pointer ${
+						activeTab === 'analytics'
+							? 'bg-white text-orange-600 shadow-xl scale-105'
+							: 'text-white/70 hover:text-white hover:bg-white/10'
+					}`}
+				>
+					<BarChart3 size={20} /> Thống kê & Insight
+				</button>
+
+				<button
+					onClick={() => handleTabClick('settings')}
+					className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs mt-4 cursor-pointer ${
+						activeTab === 'settings'
+							? 'bg-white text-orange-600 shadow-xl scale-105'
+							: 'text-white/70 hover:text-white hover:bg-white/10'
+					}`}
+				>
+					<Settings size={20} /> Cài đặt shop
+				</button>
+			</nav>
+>>>>>>> da15fdd10326fb9bf41f33b8769c8cb8be102e7d
 
       <button
         onClick={onLogout}

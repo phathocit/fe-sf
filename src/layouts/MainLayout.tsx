@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MapIcon, ShieldAlert, StoreIcon, HomeIcon, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import VisitLogger from '../components/VisitLogger';
 
 export default function MainLayout() {
 	const { t, i18n } = useTranslation('common');
@@ -14,9 +15,10 @@ export default function MainLayout() {
 
 	return (
 		<div className='min-h-screen bg-gray-50 flex flex-col font-sans'>
+			<VisitLogger />
 			<header className='fixed w-full top-0 z-100 px-4 py-4 md:px-8'>
 				<div className='max-w-7xl mx-auto rounded-full bg-slate-950/95 backdrop-blur-2xl px-6 md:px-8 py-3 md:py-4 shadow-[0_20px_50px_-15px_rgba(234,88,12,0.4)] border border-white/10 flex justify-between items-center transition-all duration-300'>
-					<Link to='/' className='cursor-pointer flex items-center gap-3 group'>
+					<Link to='/home' className='cursor-pointer flex items-center gap-3 group'>
 						<div className='w-12 h-12 bg-linear-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-500/40 group-hover:scale-105 group-active:scale-95 transition-all -rotate-6 group-hover:rotate-0'>
 							SF
 						</div>
@@ -35,8 +37,8 @@ export default function MainLayout() {
 
 					<nav className='hidden md:flex items-center gap-2 bg-slate-900 p-1.5 rounded-full border border-slate-800'>
 						<Link
-							to='/'
-							className={`cursor-pointer flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 font-bold uppercase tracking-widest text-xs ${location.pathname === '/' ? 'bg-orange-600 text-white shadow-md scale-105' : 'text-slate-400 hover:text-white'}`}
+							to='/home'
+							className={`cursor-pointer flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 font-bold uppercase tracking-widest text-xs ${location.pathname === '/home' || location.pathname === '/' ? 'bg-orange-600 text-white shadow-md scale-105' : 'text-slate-400 hover:text-white'}`}
 						>
 							<HomeIcon size={16} /> {t('home')}
 						</Link>
@@ -120,7 +122,7 @@ export default function MainLayout() {
 
 					<div className='flex gap-6 justify-center uppercase tracking-[0.2em] text-[10px] font-black'>
 						<Link
-							to='/'
+							to='/home'
 							className='text-slate-300 hover:text-orange-500 transition-colors'
 						>
 							{t('home')}

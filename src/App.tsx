@@ -8,6 +8,7 @@ import MapPage from './pages/MapPage';
 import VendorLayout from './layouts/VendorLayout';
 import VendorMenu from './pages/vendor/VendorMenu';
 import VendorSettings from './pages/vendor/VendorSettings';
+import VendorAnalytics from './pages/vendor/VendorAnalytics';
 import AuthPage from './pages/AuthPage';
 import Forbidden from './pages/error/Forbidden';
 import ErrorPage from './pages/error/ErrorPage';
@@ -16,8 +17,11 @@ import NotFound from './pages/error/NotFound';
 import { AuthProvider } from './context/AuthProvider';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ScanPage from './pages/scan/ScanPage';
+import VisitLogger from './components/VisitLogger';
+import LandingPage from './pages/LandingPage';
 
 // New Admin Sub-pages
+import DashboardPage from './pages/admin/DashboardPage';
 import StallsPage from './pages/admin/StallsPage';
 import PendingPage from './pages/admin/PendingPage';
 import UsersPage from './pages/admin/UsersPage';
@@ -44,7 +48,8 @@ function App() {
 							</ProtectedRoute>
 						}
 					>
-						<Route index element={<Navigate to='/admin/stalls' replace />} />
+						<Route index element={<Navigate to='/admin/dashboard' replace />} />
+						<Route path='dashboard' element={<DashboardPage />} />
 						<Route path='stalls' element={<StallsPage />} />
 						<Route path='pending' element={<PendingPage />} />
 						<Route path='users' element={<UsersPage />} />
@@ -63,15 +68,17 @@ function App() {
 					>
 						<Route index element={<Navigate to='/vendor/menu' replace />} />
 						<Route path='menu' element={<VendorMenu />} />
+						<Route path='analytics' element={<VendorAnalytics />} />
 						<Route path='settings' element={<VendorSettings />} />
 					</Route>
 
 					{/* Public Routes with Navbar */}
-					<Route path='/' element={<MainLayout />}>
+					<Route path='/home' element={<MainLayout />}>
 						<Route index element={<Home />} />
 						<Route path='stall/:id' element={<StallDetail />} />
 					</Route>
 
+					<Route path='/' element={<LandingPage />} />
 					<Route path='/scan' element={<ScanPage />} />
 
 					{/* Catch-all route */}

@@ -21,6 +21,9 @@ const qrCodeApi = {
 	toggle: (id: number): Promise<ApiResponse<QRCode>> => {
 		return axiosClient.patch(`/qr/${id}/toggle`);
 	},
+	regenerate: (id: number): Promise<ApiResponse<QRCode>> => {
+		return axiosClient.patch(`/qr/${id}/regenerate`);
+	},
 
 	getById: (id: number): Promise<ApiResponse<QRCode>> => {
 		return axiosClient.get(`/qr/${id}`);
@@ -30,6 +33,9 @@ const qrCodeApi = {
 		return axiosClient.get(`/qr/stall/${stallId}`);
 	},
 
+	getGateway: (): Promise<ApiResponse<QRCode>> => {
+		return axiosClient.get('/qr/gateway');
+	},
 	getAll: (): Promise<ApiResponse<QRCode[]>> => {
 		return axiosClient.get('/qr');
 	},

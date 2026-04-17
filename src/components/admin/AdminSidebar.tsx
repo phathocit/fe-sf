@@ -1,7 +1,7 @@
-import { Store, Clock, Users, LogOut, QrCode, MapPin } from 'lucide-react';
+import { Store, Clock, Users, LogOut, QrCode, MapPin, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export type AdminTab = 'stalls' | 'pending' | 'users' | 'qrcodes' | 'pois';
+export type AdminTab = 'dashboard' | 'stalls' | 'pending' | 'users' | 'qrcodes' | 'pois';
 
 interface AdminSidebarProps {
 	activeTab: AdminTab;
@@ -39,6 +39,20 @@ export default function AdminSidebar({
 			</div>
 
 			<nav className='flex-1 space-y-1.5'>
+				<button
+					onClick={() => handleTabClick('dashboard')}
+					className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all cursor-pointer ${
+						activeTab === 'dashboard'
+							? 'bg-white/10 border border-white/10 text-white shadow-xl'
+							: 'text-slate-400 hover:text-white hover:bg-white/5'
+					}`}
+				>
+					<Activity
+						size={20}
+						className={activeTab === 'dashboard' ? 'text-orange-500' : ''}
+					/>{' '}
+					Trang tổng quan
+				</button>
 				<button
 					onClick={() => handleTabClick('stalls')}
 					className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all cursor-pointer ${

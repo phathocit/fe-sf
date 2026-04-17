@@ -13,6 +13,7 @@ interface AdminLayoutProps {
 	onSearchChange: (value: string) => void;
 	showCreateQR?: boolean;
 	onCreateQR?: () => void;
+	hideSearch?: boolean;
 }
 
 export default function AdminLayout({
@@ -24,6 +25,7 @@ export default function AdminLayout({
 	onSearchChange,
 	showCreateQR,
 	onCreateQR,
+	hideSearch,
 }: AdminLayoutProps) {
 	const { logout } = useAuth();
 	const location = useLocation();
@@ -58,19 +60,21 @@ export default function AdminLayout({
 					</div>
 
 					<div className='flex items-center gap-6'>
-						<div className='relative group'>
-							<Search
-								className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors'
-								size={18}
-							/>
-							<input
-								type='text'
-								placeholder={searchPlaceholder}
-								className='bg-slate-100 border-none px-12 py-3 rounded-2xl text-sm font-bold w-64 focus:ring-4 focus:ring-orange-500/10 focus:bg-white transition-all outline-none'
-								value={searchValue}
-								onChange={(e) => onSearchChange(e.target.value)}
-							/>
-						</div>
+						{!hideSearch && (
+							<div className='relative group'>
+								<Search
+									className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors'
+									size={18}
+								/>
+								<input
+									type='text'
+									placeholder={searchPlaceholder}
+									className='bg-slate-100 border-none px-12 py-3 rounded-2xl text-sm font-bold w-64 focus:ring-4 focus:ring-orange-500/10 focus:bg-white transition-all outline-none'
+									value={searchValue}
+									onChange={(e) => onSearchChange(e.target.value)}
+								/>
+							</div>
+						)}
 						{showCreateQR && (
 							<button
 								onClick={onCreateQR}
