@@ -72,6 +72,19 @@ export default function QRCodesPage() {
 		}
 	};
 
+	const handleRegenerateQR = async (qr: QRCode) => {
+		if (!window.confirm('Bạn có chắc muốn làm mới mã QR này? Mã cũ sẽ không còn hiệu lực.')) return;
+		try {
+			const res = await qrCodeApi.regenerate(qr.id);
+			if (res.result) {
+				setQrCodes(qrCodes.map((q) => (q.id === qr.id ? res.result : q)));
+				toast.success('Mã QR đã được làm mới!');
+			}
+		} catch {
+			toast.error('Lỗi khi làm mới mã QR');
+		}
+	};
+
 	const handleCreateQR = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!newQR.name || !newQR.stallId) return;
@@ -224,6 +237,13 @@ export default function QRCodesPage() {
 										</td>
 										<td className='p-6 text-right pr-10'>
 											<div className='flex justify-end gap-2'>
+												<button
+													onClick={() => handleRegenerateQR(qr)}
+													className='cursor-pointer w-10 h-10 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center shadow-sm'
+													title='Làm mới mã QR'
+												>
+													<RefreshCcw size={18} />
+												</button>
 												<button
 													onClick={() => handleToggleQRActive(qr)}
 													className={`cursor-pointer w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-sm ${qr.isActive ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-emerald-500'}`}

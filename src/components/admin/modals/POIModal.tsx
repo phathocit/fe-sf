@@ -1,6 +1,23 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X, MapPin, Save, Crosshair, Navigation, Layers, Maximize, Target } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap, LayersControl } from 'react-leaflet';
+import {
+	X,
+	MapPin,
+	Save,
+	Crosshair,
+	Navigation,
+	Layers,
+	Maximize,
+	Target,
+} from 'lucide-react';
+import {
+	MapContainer,
+	TileLayer,
+	Marker,
+	Circle,
+	useMapEvents,
+	useMap,
+	LayersControl,
+} from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { type Stall } from '../../../types/stall.types';
@@ -12,7 +29,8 @@ const { BaseLayer } = LayersControl;
 // Fix Leaflet icon issue
 const icon = L.icon({
 	iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-	iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+	iconRetinaUrl:
+		'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
 	shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 	iconSize: [25, 41],
 	iconAnchor: [12, 41],
@@ -68,7 +86,7 @@ export default function POIModal({
 		if (stall) {
 			setLat(parseFloat(stall.latitude));
 			setLng(parseFloat(stall.longitude));
-			
+
 			const fetchConfig = async () => {
 				try {
 					const res = await triggerApi.getByStallId(stall.id);
@@ -148,10 +166,14 @@ export default function POIModal({
 					<div className='mb-10'>
 						<h2 className='text-3xl font-black text-slate-900 uppercase italic leading-tight tracking-tight'>
 							{isEdit ? 'Cấu hình' : 'Thông tin'}{' '}
-							<span className='text-orange-500 not-italic block'>Vị Trí POI</span>
+							<span className='text-orange-500 not-italic block'>
+								Vị Trí POI
+							</span>
 						</h2>
 						<div className='flex items-center gap-2 mt-4'>
-							<span className='bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest'>ID #{stall.id}</span>
+							<span className='bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest'>
+								ID #{stall.id}
+							</span>
 							<p className='text-slate-500 font-bold uppercase tracking-widest text-[10px] truncate max-w-[150px]'>
 								{stall.name}
 							</p>
@@ -172,12 +194,15 @@ export default function POIModal({
 										disabled={!isEdit}
 										className='w-full bg-white border border-slate-100 px-6 py-4 rounded-2xl font-mono text-sm font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all shadow-sm disabled:opacity-50 disabled:bg-slate-100 cursor-default'
 									/>
-									<div className='absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase'>Lat</div>
+									<div className='absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase'>
+										Lat
+									</div>
 								</div>
 							</div>
 							<div className='space-y-3'>
 								<label className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2'>
-									<Target size={12} className='text-indigo-500' /> Tọa độ Kinh độ
+									<Target size={12} className='text-indigo-500' /> Tọa độ Kinh
+									độ
 								</label>
 								<div className='relative'>
 									<input
@@ -187,7 +212,9 @@ export default function POIModal({
 										disabled={!isEdit}
 										className='w-full bg-white border border-slate-100 px-6 py-4 rounded-2xl font-mono text-sm font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all shadow-sm disabled:opacity-50 disabled:bg-slate-100 cursor-default'
 									/>
-									<div className='absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase'>Lng</div>
+									<div className='absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase'>
+										Lng
+									</div>
 								</div>
 							</div>
 						</div>
@@ -195,7 +222,8 @@ export default function POIModal({
 						<div className='p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-5'>
 							<div className='flex items-center justify-between'>
 								<label className='text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2'>
-									<Layers size={14} className='text-orange-500' /> Bán kính Trigger
+									<Layers size={14} className='text-orange-500' /> Bán kính
+									Trigger
 								</label>
 								<span className='bg-orange-500 text-white px-3 py-1 rounded-full text-[10px] font-black'>
 									{radius}m
@@ -225,14 +253,27 @@ export default function POIModal({
 								onClick={handleSave}
 								className='w-full py-5 bg-slate-900 hover:bg-orange-600 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/20 active:scale-95 transition-all group'
 							>
-								<Save size={18} className='group-hover:rotate-12 transition-transform' /> Lưu cấu hình POI
+								<Save
+									size={18}
+									className='group-hover:rotate-12 transition-transform'
+								/>{' '}
+								Lưu cấu hình POI
 							</button>
 						) : (
 							<button
-								onClick={() => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')}
+								onClick={() =>
+									window.open(
+										`https://www.google.com/maps?q=${lat},${lng}`,
+										'_blank',
+									)
+								}
 								className='w-full py-5 bg-indigo-600 hover:bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 shadow-2xl shadow-indigo-600/20 active:scale-95 transition-all group'
 							>
-								<Navigation size={18} className='group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform' /> Điều hướng Google Maps
+								<Navigation
+									size={18}
+									className='group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform'
+								/>{' '}
+								Điều hướng Google Maps
 							</button>
 						)}
 					</div>
@@ -251,8 +292,12 @@ export default function POIModal({
 									</div>
 								</div>
 								<div>
-									<h4 className='text-[11px] font-black text-slate-900 uppercase'>Chế độ chuẩn xác</h4>
-									<p className='text-[9px] font-bold text-slate-500 uppercase tracking-wide opacity-70'>Tọa độ thời gian thực (WGS84)</p>
+									<h4 className='text-[11px] font-black text-slate-900 uppercase'>
+										Chế độ chuẩn xác
+									</h4>
+									<p className='text-[9px] font-bold text-slate-500 uppercase tracking-wide opacity-70'>
+										Tọa độ thời gian thực (WGS84)
+									</p>
 								</div>
 							</div>
 						</div>
@@ -297,7 +342,7 @@ export default function POIModal({
 								icon={icon}
 								ref={markerRef}
 							/>
-							
+
 							<Circle
 								center={[lat, lng]}
 								radius={radius}
@@ -309,7 +354,7 @@ export default function POIModal({
 									dashArray: '8, 12',
 								}}
 							/>
-							
+
 							<MapUpdater center={[lat, lng]} />
 							<LocationPicker
 								onLocationSelect={(newLat, newLng) => {
@@ -320,7 +365,7 @@ export default function POIModal({
 							/>
 						</MapContainer>
 					</div>
-					
+
 					{/* Footer Badge */}
 					<div className='absolute bottom-8 right-8 z-[1000]'>
 						<div className='bg-slate-900 text-white px-5 py-2 rounded-full shadow-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3'>
@@ -335,8 +380,25 @@ export default function POIModal({
 }
 
 // Helper icons missing in imports
-const Activity = ({ className, size }: { className?: string; size?: number }) => (
-	<svg xmlns="http://www.w3.org/2000/svg" width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-		<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+const Activity = ({
+	className,
+	size,
+}: {
+	className?: string;
+	size?: number;
+}) => (
+	<svg
+		xmlns='http://www.w3.org/2000/svg'
+		width={size || 24}
+		height={size || 24}
+		viewBox='0 0 24 24'
+		fill='none'
+		stroke='currentColor'
+		strokeWidth='2'
+		strokeLinecap='round'
+		strokeLinejoin='round'
+		className={className}
+	>
+		<path d='M22 12h-4l-3 9L9 3l-3 9H2' />
 	</svg>
 );

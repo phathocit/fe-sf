@@ -222,7 +222,7 @@ export default function VendorDashboard() {
 						onEditItem={handleOpenModal}
 					/>
 				)}
-				{activeTab === 'analytics' && <Analytics />}
+				{activeTab === 'analytics' && stall?.id && <Analytics stallId={stall.id} />}
 				{activeTab === 'settings' && (
 					<ShopSettings
 						tmpStall={tmpStall}

@@ -1,4 +1,4 @@
-import { PackageSearch, Settings, LogOut } from 'lucide-react';
+import { PackageSearch, Settings, LogOut, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Stall } from '../../types/stall.types';
 import type { Account } from '../../types/auth.types';
@@ -6,8 +6,8 @@ import type { Account } from '../../types/auth.types';
 interface VendorSidebarProps {
 	stall: Stall;
 	account: Account | null;
-	activeTab: 'menu' | 'settings';
-	onTabChange?: (tab: 'menu' | 'settings') => void;
+	activeTab: 'menu' | 'settings' | 'analytics';
+	onTabChange?: (tab: 'menu' | 'settings' | 'analytics') => void;
 	onLogout: () => void;
 }
 
@@ -20,7 +20,7 @@ export default function VendorSidebar({
 }: VendorSidebarProps) {
 	const navigate = useNavigate();
 
-	const handleTabClick = (tab: 'menu' | 'settings') => {
+	const handleTabClick = (tab: 'menu' | 'settings' | 'analytics') => {
 		if (onTabChange) {
 			onTabChange(tab);
 		} else {
@@ -64,6 +64,18 @@ export default function VendorSidebar({
 				>
 					<PackageSearch size={20} /> Quản lý Thực đơn
 				</button>
+
+				<button
+					onClick={() => handleTabClick('analytics')}
+					className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs mt-4 cursor-pointer ${
+						activeTab === 'analytics'
+							? 'bg-white text-orange-600 shadow-xl scale-105'
+							: 'text-white/70 hover:text-white hover:bg-white/10'
+					}`}
+				>
+					<BarChart3 size={20} /> Thống kê & Insight
+				</button>
+
 				<button
 					onClick={() => handleTabClick('settings')}
 					className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs mt-4 cursor-pointer ${

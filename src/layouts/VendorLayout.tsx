@@ -63,8 +63,9 @@ export default function VendorLayout() {
 	}
 
 	// Xác định activeTab dựa trên pathname
-	const getActiveTab = (): 'menu' | 'settings' => {
+	const getActiveTab = (): 'menu' | 'settings' | 'analytics' => {
 		if (location.pathname.includes('/vendor/settings')) return 'settings';
+		if (location.pathname.includes('/vendor/analytics')) return 'analytics';
 		return 'menu';
 	};
 
