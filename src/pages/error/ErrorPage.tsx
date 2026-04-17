@@ -1,8 +1,10 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Home, RefreshCw } from 'lucide-react';
 
 const ErrorPage: React.FC = () => {
+	const [searchParams] = useSearchParams();
+	const message = searchParams.get('message');
+
 	return (
 		<div className='min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans relative overflow-hidden'>
 			{/* Decorative elements */}
@@ -28,8 +30,7 @@ const ErrorPage: React.FC = () => {
 				</h2>
 
 				<p className='text-slate-400 font-bold text-lg mb-12 leading-relaxed max-w-lg mx-auto'>
-					Hệ thống đang gặp trục trặc kỹ thuật hoặc liên kết bạn truy cập không còn tồn tại. 
-					Hãy thử tải lại trang hoặc quay về trang chủ.
+					{message || 'Hệ thống đang gặp trục trặc kỹ thuật hoặc liên kết bạn truy cập không còn tồn tại. Hãy thử tải lại trang hoặc quay về trang chủ.'}
 				</p>
 
 				<div className='flex flex-wrap items-center justify-center gap-4'>

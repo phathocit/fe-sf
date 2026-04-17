@@ -6,6 +6,17 @@ import { useNavigate } from 'react-router-dom';
 function ScanPage() {
 	const navigate = useNavigate();
 
+	function getSessionId() {
+		let sessionId = localStorage.getItem('sessionId');
+
+		if (!sessionId) {
+			sessionId = new Date().getTime().toString();
+			localStorage.setItem('sessionId', sessionId);
+		}
+
+		return sessionId;
+	}
+
 	useEffect(() => {
 		const scanner = new Html5QrcodeScanner(
 			'reader',
@@ -20,8 +31,12 @@ function ScanPage() {
 		scanner.render(
 			(decodedText) => {
 				console.log('Scanned:', decodedText);
-				// Redirect to BE which will handle logic and redirect back to FE
-				window.location.href = decodedText;
+				const sessionId = getSessionId();
+				const url = new URL(decodedText);
+				// Gắn thêm sessionId
+				url.searchParams.set('sessionId', sessionId);
+				// redirect sang BE
+				window.location.href = url.toString();
 			},
 			() => {
 				// Silent errors for scanning frames
