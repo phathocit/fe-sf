@@ -192,7 +192,7 @@ export default function QRCodesPage() {
                       <div className="flex items-center gap-5">
                         <div className="w-16 h-16 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
                           <QRCodeSVG
-                            value={`${import.meta.env.VITE_QR_BASE_URL}/api/qr/scan/${qr.code}`}
+                            value={`${window.location.origin}/api/qr/scan/${qr.code}`}
                             size={48}
                             level="H"
                           />

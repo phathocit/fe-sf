@@ -80,7 +80,14 @@ function App() {
           {/* Public Routes with Navbar */}
           <Route path="/home" element={<MainLayout />}>
             <Route index element={<Home />} />
+            {/* Giữ lại cái này nếu bạn vẫn muốn truy cập được từ /home/stall/:id */}
             <Route path="stall/:id" element={<StallDetail />} />
+          </Route>
+
+          {/* CHỖ CẦN SỬA: Thêm Route này để khớp với Link QR (/stall/2) */}
+          {/* Nếu bạn muốn có Navbar ở trang này, hãy bọc nó trong MainLayout */}
+          <Route path="/stall/:id" element={<MainLayout />}>
+            <Route index element={<StallDetail />} />
           </Route>
 
           <Route path="/" element={<LandingPage />} />
