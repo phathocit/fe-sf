@@ -53,11 +53,21 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 						Hiệu quả truyền thông audio và lượt quét QR trực tiếp
 					</p>
 				</div>
-				<div className='bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4'>
-					<div className='w-2 h-2 rounded-full bg-green-500 animate-pulse'></div>
-					<span className='text-[10px] font-black uppercase tracking-widest text-slate-400'>
-						Dữ liệu cập nhật mới nhất
-					</span>
+				<div className='flex items-center gap-4'>
+					<select 
+						value={days}
+						onChange={(e) => setDays(Number(e.target.value))}
+						className='bg-white border border-slate-100 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none cursor-pointer shadow-sm hover:border-orange-200 transition-colors'
+					>
+						<option value={7}>7 Ngày qua</option>
+						<option value={30}>30 Ngày qua</option>
+					</select>
+					<div className='bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4'>
+						<div className='w-2 h-2 rounded-full bg-green-500 animate-pulse'></div>
+						<span className='text-[10px] font-black uppercase tracking-widest text-slate-400'>
+							Dữ liệu cập nhật mới nhất
+						</span>
+					</div>
 				</div>
 			</div>
 
@@ -135,49 +145,7 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 				</div>
 			</div>
 
-			<div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-				<div className='lg:col-span-2 bg-white rounded-4xl border border-slate-100 shadow-sm p-10'>
-					<div className='flex items-center justify-between mb-10'>
-						<h3 className='font-black text-slate-900 italic uppercase tracking-tight flex items-center gap-3'>
-							<Activity className='text-orange-500' /> Biểu đồ lưu lượng ({days} ngày)
-						</h3>
-						<select 
-							value={days}
-							onChange={(e) => setDays(Number(e.target.value))}
-							className='bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none cursor-pointer'
-						>
-							<option value={7}>7 Ngày qua</option>
-							<option value={30}>30 Ngày qua</option>
-						</select>
-					</div>
-
-					<div className='h-64 flex items-end justify-between gap-4 px-4 border-b border-slate-50 pb-2 overflow-x-auto no-scrollbar'>
-						{stats.dailyVisits.length === 0 ? (
-							<div className='w-full h-full flex items-center justify-center text-slate-300 text-[10px] font-black uppercase tracking-widest'>
-								Chưa có dữ liệu theo ngày
-							</div>
-						) : (
-							stats.dailyVisits.map((item: any, idx: number) => (
-								<div key={idx} className='flex-1 min-w-[30px] flex flex-col items-center group'>
-									<div className='w-full relative'>
-										<div
-											style={{ height: `${Math.min(100, (item.count / (Math.max(...stats.dailyVisits.map((d: any) => d.count)) || 1)) * 100)}%` }}
-											className={`w-full rounded-t-xl transition-all duration-500 group-hover:brightness-110 relative ${idx === stats.dailyVisits.length - 1 ? 'bg-orange-600' : 'bg-slate-200'}`}
-										>
-											<div className='absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none'>
-												{item.count}
-											</div>
-										</div>
-									</div>
-									<span className='text-[8px] font-black text-slate-400 mt-4 uppercase tracking-tighter'>
-										N. {item.day}
-									</span>
-								</div>
-							))
-						)}
-					</div>
-				</div>
-
+			<div className='grid grid-cols-1 gap-8'>
 				<div className='bg-slate-900 rounded-4xl shadow-2xl p-10 text-white relative overflow-hidden group'>
 					<div className='absolute top-0 right-0 w-64 h-64 bg-orange-600/20 rounded-full blur-3xl -mr-32 -mt-32'></div>
 					<div className='relative z-10 h-full flex flex-col'>
