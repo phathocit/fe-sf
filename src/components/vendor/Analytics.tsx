@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Volume2, Navigation, Activity } from 'lucide-react';
+import { Users, Volume2, Activity } from 'lucide-react';
 import visitApi from '../../api/visitApi';
 
 interface AnalyticsProps {
@@ -53,21 +53,11 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 						Hiệu quả truyền thông audio và lượt quét QR trực tiếp
 					</p>
 				</div>
-				<div className='flex items-center gap-4'>
-					<select 
-						value={days}
-						onChange={(e) => setDays(Number(e.target.value))}
-						className='bg-white border border-slate-100 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none cursor-pointer shadow-sm hover:border-orange-200 transition-colors'
-					>
-						<option value={7}>7 Ngày qua</option>
-						<option value={30}>30 Ngày qua</option>
-					</select>
-					<div className='bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4'>
-						<div className='w-2 h-2 rounded-full bg-green-500 animate-pulse'></div>
-						<span className='text-[10px] font-black uppercase tracking-widest text-slate-400'>
-							Dữ liệu cập nhật mới nhất
-						</span>
-					</div>
+				<div className='bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4'>
+					<div className='w-2 h-2 rounded-full bg-green-500 animate-pulse'></div>
+					<span className='text-[10px] font-black uppercase tracking-widest text-slate-400'>
+						Dữ liệu cập nhật mới nhất
+					</span>
 				</div>
 			</div>
 
@@ -145,25 +135,29 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 				</div>
 			</div>
 
-			<div className='grid grid-cols-1 gap-8'>
+			<div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
 				<div className='bg-slate-900 rounded-4xl shadow-2xl p-10 text-white relative overflow-hidden group'>
 					<div className='absolute top-0 right-0 w-64 h-64 bg-orange-600/20 rounded-full blur-3xl -mr-32 -mt-32'></div>
 					<div className='relative z-10 h-full flex flex-col'>
 						<h3 className='font-black italic uppercase tracking-tight mb-8'>
 							Phân tích nguồn khách
 						</h3>
-
 						<div className='space-y-8 flex-1'>
 							<div>
 								<div className='flex justify-between text-[10px] font-black uppercase tracking-widest mb-3'>
 									<span>Quét QR tại chỗ</span>
 									<span className='text-orange-500'>
-										{stats.totalVisits > 0 ? Math.round((stats.qrScans / stats.totalVisits) * 100) : 0}%
+										{stats.totalVisits > 0
+											? Math.round((stats.qrScans / stats.totalVisits) * 100)
+											: 0}
+										%
 									</span>
 								</div>
 								<div className='h-2 bg-white/10 rounded-full overflow-hidden'>
-									<div 
-										style={{ width: `${stats.totalVisits > 0 ? Math.round((stats.qrScans / stats.totalVisits) * 100) : 0}%` }}
+									<div
+										style={{
+											width: `${stats.totalVisits > 0 ? Math.round((stats.qrScans / stats.totalVisits) * 100) : 0}%`,
+										}}
 										className='h-full bg-orange-600 transition-all duration-1000'
 									></div>
 								</div>
@@ -172,12 +166,19 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 								<div className='flex justify-between text-[10px] font-black uppercase tracking-widest mb-3'>
 									<span>Tương tác Audio</span>
 									<span className='text-indigo-400'>
-										{stats.totalVisits > 0 ? Math.round((stats.audioCompletes / stats.totalVisits) * 100) : 0}%
+										{stats.totalVisits > 0
+											? Math.round(
+													(stats.audioCompletes / stats.totalVisits) * 100,
+												)
+											: 0}
+										%
 									</span>
 								</div>
 								<div className='h-2 bg-white/10 rounded-full overflow-hidden'>
-									<div 
-										style={{ width: `${stats.totalVisits > 0 ? Math.round((stats.audioCompletes / stats.totalVisits) * 100) : 0}%` }}
+									<div
+										style={{
+											width: `${stats.totalVisits > 0 ? Math.round((stats.audioCompletes / stats.totalVisits) * 100) : 0}%`,
+										}}
 										className='h-full bg-indigo-500 transition-all duration-1000'
 									></div>
 								</div>
@@ -186,7 +187,8 @@ export default function Analytics({ stallId }: AnalyticsProps) {
 
 						<div className='mt-10 pt-10 border-t border-white/10 italic'>
 							<p className='text-[10px] text-slate-400 font-bold leading-relaxed'>
-								* Dữ liệu thời gian thực giúp bạn tối ưu hóa nội dung audio và vị trí đặt mã QR.
+								* Dữ liệu thời gian thực giúp bạn tối ưu hóa nội dung audio và
+								vị trí đặt mã QR.
 							</p>
 						</div>
 					</div>
