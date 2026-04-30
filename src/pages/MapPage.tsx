@@ -74,8 +74,6 @@ export default function MapPage() {
   const geofenceRadius = 25;
   const voiceTourEnabled = true;
 
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
   // State theo dõi tiến độ tải audio
   const [audioProgress, setAudioProgress] = useState({
     current: 0,
@@ -84,29 +82,75 @@ export default function MapPage() {
   });
 
   // Lắng nghe sự kiện thay đổi trạng thái mạng
+  // 1. State khởi tạo chính xác
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showOnlineStatus, setShowOnlineStatus] = useState(false);
+
+  // Dùng useCallback để hàm check mạng có thể được gọi ở nhiều nơi
+  const verifyConnectivity = useCallback(async () => {
+    try {
+      // Thử ping một file nhỏ (favicon) với mode no-store để không lấy cache
+      const response = await fetch("/favicon.ico", {
+        method: "HEAD",
+        cache: "no-store",
+        // Thêm timeout để không đợi quá lâu nếu mạng cực yếu
+        signal: AbortSignal.timeout(3000),
+      });
+      return response.ok;
+    } catch {
+      return false; // Lỗi fetch = thực sự mất mạng
+    }
+  }, []);
+
   useEffect(() => {
-    const handleOnline = () => {
+    let onlineTimer: ReturnType<typeof setTimeout>;
+
+    const handleOnline = async () => {
+      // Bước 1: Tin trình duyệt trước để hiện UI xanh ngay cho mượt (tốc độ <0.1s)
       setIsOnline(true);
-      toast.success("Đã khôi phục kết nối mạng! Đang đồng bộ dữ liệu...");
-      // Khi có mạng lại, có thể gọi lại hàm fetchStalls() để cập nhật dữ liệu mới nhất
+      setShowOnlineStatus(true);
+
+      // Bước 2: Xác thực lại "mạng thật" ngầm (phòng trường hợp WiFi không có internet)
+      const isReallyOnline = await verifyConnectivity();
+
+      if (!isReallyOnline) {
+        setIsOnline(false);
+        setShowOnlineStatus(false);
+      } else {
+        // Nếu thực sự có mạng, sau 5s ẩn nút xanh
+        clearTimeout(onlineTimer);
+        onlineTimer = setTimeout(() => setShowOnlineStatus(false), 5000);
+      }
     };
 
     const handleOffline = () => {
+      // TRIGGER TỨC THÌ: Khi ngắt kết nối, trình duyệt bắn event này ngay lập tức
       setIsOnline(false);
-      toast.warn(
-        "Bạn đang ở chế độ ngoại tuyến. Dữ liệu có thể cũ hơn thực tế.",
-      );
+      setShowOnlineStatus(false);
+      // Xóa các thông báo thành công cũ nếu có
+      clearTimeout(onlineTimer);
     };
+
+    // Kiểm tra trạng thái thực tế ngay khi vừa load trang (tránh lag khi reload)
+    const initialCheck = async () => {
+      if (navigator.onLine) {
+        const reallyConnected = await verifyConnectivity();
+        setIsOnline(reallyConnected);
+      } else {
+        setIsOnline(false);
+      }
+    };
+    initialCheck();
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Dọn dẹp listener khi component bị hủy
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      clearTimeout(onlineTimer);
     };
-  }, []);
+  }, [verifyConnectivity]);
 
   // Fetch Data
   useEffect(() => {
@@ -232,7 +276,7 @@ export default function MapPage() {
     if (navigator.onLine) {
       try {
         const response = await foodApi.getByStallId(stall.id);
-        const menuData = response?.result.filter(
+        const menuData = (response?.result || []).filter(
           (item: Food) => item.isAvailable,
         );
 
@@ -448,6 +492,26 @@ export default function MapPage() {
     [isAudioPlaying, activeAudioId],
   );
 
+  // Tách phần giao diện thông báo mạng ra một biến để tái sử dụng
+  const NetworkStatusBadge = (
+    <div
+      className={`
+    fixed top-6 left-1/2 -translate-x-1/2 z-[10000] 
+    px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest 
+    transition-all duration-500 shadow-2xl border-2 pointer-events-none
+    ${
+      !isOnline
+        ? "bg-rose-600 text-white border-rose-400 opacity-100 animate-pulse" // Hiện đỏ ngay khi isOnline = false
+        : showOnlineStatus
+          ? "bg-green-600 text-white border-green-400 opacity-100" // Hiện xanh 5s
+          : "opacity-0"
+    }
+  `}
+    >
+      {!isOnline ? "⚠ ĐANG OFFLINE" : "● ĐÃ KẾT NỐI"}
+    </div>
+  );
+
   // Markers sync effect
   useEffect(() => {
     if (activeStallId) {
@@ -464,6 +528,7 @@ export default function MapPage() {
   if (loading) {
     return (
       <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
+        {NetworkStatusBadge} {/* Thêm vào đây */}
         <Loader2 className="w-12 h-12 animate-spin text-orange-500 mb-4" />
         <p className="font-black italic uppercase tracking-widest animate-pulse">
           Initializing Food-Map...
@@ -503,21 +568,7 @@ export default function MapPage() {
           </p>
         </div>
       )}
-      {/* Thêm đoạn này vào một góc nào đó trong giao diện của bạn */}
-      <div
-        className={`
-        fixed top-4 left-1/2 -translate-x-1/2 z-[1000] 
-        px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest 
-        transition-all duration-500
-        ${
-          isOnline
-            ? "bg-green-500 text-white opacity-0 pointer-events-none"
-            : "bg-rose-500 text-white shadow-lg animate-pulse opacity-100"
-        }
-      `}
-      >
-        {isOnline ? "● Đã kết nối" : "⚠ Đang Offline"}
-      </div>
+      {NetworkStatusBadge}
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
