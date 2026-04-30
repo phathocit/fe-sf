@@ -464,6 +464,7 @@ export default function MapPage() {
   return (
     <div className="w-full h-screen relative flex flex-col md:flex-row bg-slate-50 overflow-hidden">
       {/* Thêm đoạn này vào một góc nào đó trong giao diện của bạn */}
+<<<<<<< HEAD
       <div className={`
         fixed top-4 left-1/2 -translate-x-1/2 z-[1000] 
         px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest 
@@ -473,6 +474,10 @@ export default function MapPage() {
           : 'bg-rose-500 text-white shadow-lg animate-pulse opacity-100'}
       `}>
           {isOnline ? '● Đã kết nối' : '⚠ Đang Offline'}
+=======
+      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500/20 text-green-500 opacity-0' : 'bg-rose-500 text-white shadow-lg animate-pulse opacity-100'}`}>
+          {isOnline ? '● Online' : '⚠ Đang Offline'}
+>>>>>>> bfea5a0067428dfc74f9dd9faed9eb71a4997c84
       </div>
       {/* Mobile Toggle Button */}
       <button
