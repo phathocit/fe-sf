@@ -1,82 +1,128 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { VitePWA } from "vite-plugin-pwa"; // Thêm dòng này
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
-      // 1. Tự động cập nhật ứng dụng khi bạn có thay đổi code mới
+      // Tự động cập nhật service worker khi có phiên bản mới
       registerType: "autoUpdate",
 
-      // 2. Những loại file sẽ được "cất vào kho" để chạy offline
-      includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
+      // Kích hoạt PWA ngay cả khi đang chạy lệnh 'npm run dev'
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
 
-      // 3. Cấu hình Manifest
+      // Các file tĩnh trong thư mục public cần được cache trước
+      includeAssets: [
+        "favicon.ico",
+        "apple-touch-icon.png",
+        "mask-icon.svg",
+        "locales/**/*.json", // Quan trọng cho đa ngôn ngữ
+      ],
+
       manifest: {
         name: "Food-Map VIP",
         short_name: "FoodMap",
         description: "Khám phá ẩm thực đường phố ngay cả khi không có mạng",
         theme_color: "#ea580c",
+        background_color: "#ffffff",
+        start_url: "/",
+        display: "standalone", // Hiện thị như app độc lập (mất thanh địa chỉ trình duyệt)
         icons: [
           {
-            src: "pwa-192x192.png", // Bạn cần tạo ảnh này trong thư mục public
+            src: "pwa-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png", // Bạn cần tạo ảnh này trong thư mục public
+            src: "pwa-512x512.png",
             sizes: "512x512",
             type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable", // Giúp icon đẹp trên Android
           },
         ],
       },
 
-      // 4. Chiến lược lưu trữ (Workbox)
       workbox: {
-        // Lưu trữ tất cả file giao diện (CSS, JS, HTML)
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        // Cache toàn bộ code build và các file assets
+        globPatterns: [
+          "**/*.{js,css,html,ico,png,svg,json}", // Đã bao gồm các file json cơ bản
+          "locales/**/*.json", // Thêm dòng này để chắc chắn toàn bộ file dịch được lưu offline
+        ],
 
-        // Cấu hình để cache cả các file từ bên ngoài (như Google Fonts hoặc ảnh từ Unsplash)
+        // Cấu hình lưu trữ cho các tài nguyên bên ngoài (External APIs/CDNs)
         runtimeCaching: [
+          // 1. Cache ảnh từ Unsplash
           {
             urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
             handler: "CacheFirst",
             options: {
               cacheName: "external-images-cache",
+              expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // 2. Cache ảnh từ Vinpearl
+          {
+            urlPattern: /^https:\/\/statics\.vinpearl\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "vinpearl-images",
+              expiration: { maxEntries: 20, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // 3. Cache Audio và Ảnh từ Cloudinary (Dành cho Audio thuyết minh)
+          {
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "cloudinary-assets",
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // Lưu trong 30 ngày
+                maxEntries: 100,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              fetchOptions: {
+                mode: "cors",
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [0, 200], // Status 0 cực kỳ quan trọng cho request CORS từ Cloudinary
               },
             },
           },
+          // 4. Cache mảnh bản đồ OpenStreetMap (Offline Map)
           {
             urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*/i,
-            handler: 'CacheFirst',
+            handler: "CacheFirst",
             options: {
-              cacheName: 'leaflet-map-tiles',
+              cacheName: "leaflet-map-tiles",
               expiration: {
-                maxEntries: 500, // Lưu tối đa 500 mảnh bản đồ
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 ngày
+                maxEntries: 1000, // Tăng lên nếu khu vực bản đồ rộng
+                maxAgeSeconds: 30 * 24 * 60 * 60,
               },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],
       },
     }),
   ],
+
+  // Cấu hình server để hỗ trợ ngrok và proxy backend
   server: {
     host: true,
     port: 5173,
-    allowedHosts: true,
+    allowedHosts: true, // Cho phép ngrok truy cập
     proxy: {
       "/api": {
         target: "http://localhost:8080",

@@ -5,7 +5,7 @@ const axiosClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Request interceptor
@@ -25,17 +25,29 @@ axiosClient.interceptors.request.use(
 // Response interceptor
 axiosClient.interceptors.response.use(
   (response) => {
-    return response.data;
+    // Trả về response.data là đúng, nhưng nên dùng optional chaining cho chắc chắn
+    return response?.data;
   },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
     }
-    // Globally handle errors here
-    const message = error.response?.data?.message || error.message;
-    const code = error.response?.data?.code;
+
+    // --- SỬA LỖI TẠI ĐÂY ---
+    // Khi Offline, error.response sẽ bị undefined.
+    // Việc truy cập error.response.data.message sẽ gây ra lỗi "reading property of undefined"
+    const message =
+      error.response?.data?.message || error.message || "Lỗi kết nối mạng";
+    const code = error.response?.data?.code || "NETWORK_ERROR";
+
     console.error("API Error:", message, "Error Code: ", code);
-    return Promise.reject({ ...error, message });
+
+    // Trả về một object lỗi có cấu trúc để các hàm .catch() hoặc try-catch bên ngoài không bị crash
+    return Promise.reject({
+      message,
+      code,
+      isNetworkError: !error.response,
+    });
   },
 );
 

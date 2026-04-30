@@ -35,6 +35,7 @@ interface MapContentProps {
   t: (key: string, options?: any) => string;
 }
 
+// Điều khiển camera bản đồ khi trung tâm thay đổi
 function MapController({ center }: { center: [number, number] }) {
   const map = useMap();
   React.useEffect(() => {
@@ -43,6 +44,7 @@ function MapController({ center }: { center: [number, number] }) {
   return null;
 }
 
+// Xử lý sự kiện click ra ngoài để đóng Popup/Active state
 function MapEvents({ onMapClick }: { onMapClick: () => void }) {
   useMapEvents({
     click: () => {
@@ -72,16 +74,30 @@ const MapContent: React.FC<MapContentProps> = ({
   onAudioToggle,
   t,
 }) => {
-  const currentUserLoc = userLoc;
+  const isOnline = navigator.onLine;
+
+  // Kiểm tra xem audio của quán đã được tải về máy chưa
+  const hasOfflineAudio = (stallId: number) => {
+    try {
+      const savedUrls = JSON.parse(
+        localStorage.getItem("offline_audio_urls") || "{}",
+      );
+      return !!savedUrls[stallId];
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <div className="flex-1 h-full z-0 relative overflow-hidden bg-slate-100">
+      {/* Nút định vị người dùng (Mobile) */}
       <button
         onClick={locateUser}
-        className="md:hidden fixed top-24 right-6 z-500 w-12 h-12 bg-white text-slate-900 rounded-2xl flex items-center justify-center shadow-2xl border border-slate-200 active:scale-95 transition-all"
+        className="md:hidden fixed top-24 right-6 z-[500] w-12 h-12 bg-white text-slate-900 rounded-2xl flex items-center justify-center shadow-2xl border border-slate-200 active:scale-95 transition-all"
       >
         <Navigation size={24} className="text-orange-600" />
       </button>
+
       <MapContainer
         center={mapCenter}
         zoom={20}
@@ -89,19 +105,22 @@ const MapContent: React.FC<MapContentProps> = ({
         zoomControl={false}
         maxZoom={24}
       >
+        {/* Layer bản đồ - Sử dụng Carto để đồng bộ với Cache config */}
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">Carto</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          maxNativeZoom={18} // Server thực tế chỉ có đến mức 18
-          maxZoom={24} // Nhưng cho phép ứng dụng phóng to ảnh lên mức 24
+          maxNativeZoom={18}
+          maxZoom={24}
         />
+
         <MapController center={mapCenter} />
         <MapEvents onMapClick={onMapClick} />
 
-        {currentUserLoc && (
+        {/* Vị trí người dùng và Vòng Geofence */}
+        {userLoc && (
           <>
             <Circle
-              center={currentUserLoc}
+              center={userLoc}
               radius={geofenceRadius}
               pathOptions={{
                 fillColor: "#3b82f6",
@@ -111,25 +130,30 @@ const MapContent: React.FC<MapContentProps> = ({
                 dashArray: "5, 10",
               }}
             />
-            <Marker position={currentUserLoc} icon={userIcon}>
+            <Marker position={userLoc} icon={userIcon}>
               <Popup className="custom-popup">
                 <div className="font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4">
-                  {t("you_are_here")}
+                  {t("you_are_here", { defaultValue: "BẠN ĐANG Ở ĐÂY" })}
                 </div>
               </Popup>
             </Marker>
           </>
         )}
 
+        {/* Danh sách các quán ăn */}
         {filteredStalls.map((stall) => {
-          const distanceStr = getDistanceStr(getCoords(stall));
+          const coords = getCoords(stall);
+          const distanceStr = getDistanceStr(coords);
+          const isDownloaded = hasOfflineAudio(stall.id);
+          const isPlaying = isAudioPlaying && activeAudioId === stall.id;
+
           return (
             <Marker
               key={stall.id}
               ref={(el) => {
                 markerRefs.current[stall.id] = el;
               }}
-              position={getCoords(stall)}
+              position={coords}
               icon={createStallIcon(stall, activeStallId === stall.id)}
               zIndexOffset={activeStallId === stall.id ? 1000 : 0}
               eventHandlers={{
@@ -138,52 +162,75 @@ const MapContent: React.FC<MapContentProps> = ({
             >
               <Popup className="custom-popup rounded-[30px] overflow-hidden p-0 shadow-2xl border-4 border-white">
                 <div className="w-72 sm:w-80 overflow-hidden bg-white flex flex-col">
-                  <div className="relative h-36 sm:h-40">
+                  {/* Hình ảnh quán - Chống lỗi ảnh undefined bằng fallback */}
+                  <div className="relative h-36 sm:h-40 bg-slate-200">
                     <img
                       src={
-                        stall.image ||
-                        "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800"
+                        stall?.image ||
+                        "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800"
                       }
                       className="w-full h-full object-cover"
-                      alt={stall.name}
+                      alt={stall?.name || "Stall"}
+                      loading="lazy"
                     />
+                    {!isOnline && !isDownloaded && (
+                      <div className="absolute top-2 left-2 bg-black/50 text-white text-[8px] px-2 py-1 rounded-full backdrop-blur-sm uppercase font-bold">
+                        Chưa tải Offline
+                      </div>
+                    )}
                   </div>
+
                   <div className="p-6 text-center flex-1 flex flex-col justify-between">
                     <div>
                       <div className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-orange-500 mb-1.5">
-                        {stall.category}
+                        {stall?.category ||
+                          t("category", { defaultValue: "ẨM THỰC" })}
                       </div>
                       <h4 className="font-black text-xl sm:text-2xl text-slate-900 italic tracking-tight leading-tight">
-                        {stall.name}
+                        {stall?.name || "Tên quán ăn"}
                       </h4>
                       {distanceStr && (
                         <div className="flex justify-center items-center gap-1 mt-2.5 text-slate-500 text-sm font-bold bg-slate-100 px-3 py-1 rounded-xl w-max mx-auto shadow-inner mb-3 border border-slate-200/50">
                           <Navigation size={14} className="inline rotate-45" />{" "}
-                          {t("distance_away", { distance: distanceStr })}
+                          {t("distance_away", {
+                            distance: distanceStr,
+                            defaultValue: `${distanceStr} cách đây`,
+                          })}
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2 font-bold">
+
+                    <div className="flex gap-2 font-bold mt-4">
+                      {/* Nút Xem Menu */}
                       <button
                         onClick={() => handleOpenModal(stall)}
                         className="flex-1 cursor-pointer bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                       >
-                        <Utensils size={14} /> {t("view_menu")}
+                        <Utensils size={14} />{" "}
+                        {t("view_menu", { defaultValue: "XEM MENU" })}
                       </button>
+
+                      {/* Nút Audio - Vô hiệu hóa nếu offline và chưa tải */}
                       <button
                         onClick={() => onAudioToggle(stall)}
+                        disabled={!isOnline && !isDownloaded}
                         className={`
-													flex-1 cursor-pointer text-white text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95
-													${isAudioPlaying && activeAudioId === stall.id ? "bg-rose-600 hover:bg-rose-700" : "bg-orange-600 hover:bg-orange-700"}
-												`}
+                          flex-1 cursor-pointer text-white text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95
+                          ${isPlaying ? "bg-rose-600 hover:bg-rose-700" : "bg-orange-600 hover:bg-orange-700"}
+                          ${!isOnline && !isDownloaded ? "opacity-40 grayscale cursor-not-allowed" : ""}
+                        `}
                       >
-                        {isAudioPlaying && activeAudioId === stall.id ? (
+                        {isPlaying ? (
                           <>
-                            <VolumeX size={14} /> Dừng nghe
+                            <VolumeX size={14} />{" "}
+                            {t("stop_audio", { defaultValue: "DỪNG NGHE" })}
                           </>
                         ) : (
                           <>
-                            <Play size={14} /> Nghe audio
+                            <Play size={14} />
+                            {!isOnline && !isDownloaded
+                              ? t("offline", { defaultValue: "OFFLINE" })
+                              : t("play_audio", { defaultValue: "NGHE AUDIO" })}
                           </>
                         )}
                       </button>
@@ -196,11 +243,12 @@ const MapContent: React.FC<MapContentProps> = ({
         })}
       </MapContainer>
 
+      {/* Tối ưu CSS cho Popup và Animation */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
           .leaflet-container { font-family: inherit; }
-          .custom-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3); background: transparent; }
+          .custom-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3); background: white; }
           .custom-popup .leaflet-popup-content { margin: 0; width: auto !important; }
           .custom-popup .leaflet-popup-tip-container { display: none; }
           
@@ -209,31 +257,26 @@ const MapContent: React.FC<MapContentProps> = ({
             height: 32px !important;
             top: 12px !important;
             right: 12px !important;
-            background-color: rgba(0, 0, 0, 0.5) !important;
+            background-color: rgba(0, 0, 0, 0.4) !important;
             border-radius: 50% !important;
             color: white !important;
-            font-size: 24px !important;
-            line-height: 32px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            text-align: center !important;
             transition: all 0.2s ease !important;
             z-index: 50;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
           }
           .custom-popup .leaflet-popup-close-button:hover {
-            background-color: #f97316 !important;
-            transform: scale(1.15) !important;
+            background-color: #ea580c !important;
+            transform: scale(1.1);
           }
 
           .pulse-animation { animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
           @keyframes pulse-ring {
             0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(37, 99, 235, 0); }
+            70% { box-shadow: 0 0 0 15px rgba(37, 99, 235, 0); }
             100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
           }
-          .no-scrollbar::-webkit-scrollbar { display: none; }
         `,
         }}
       />

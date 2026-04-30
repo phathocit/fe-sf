@@ -76,6 +76,13 @@ export default function MapPage() {
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // State theo dõi tiến độ tải audio
+  const [audioProgress, setAudioProgress] = useState({
+    current: 0,
+    total: 0,
+    isSyncing: false,
+  });
+
   // Lắng nghe sự kiện thay đổi trạng thái mạng
   useEffect(() => {
     const handleOnline = () => {
@@ -86,53 +93,55 @@ export default function MapPage() {
 
     const handleOffline = () => {
       setIsOnline(false);
-      toast.warn("Bạn đang ở chế độ ngoại tuyến. Dữ liệu có thể cũ hơn thực tế.");
+      toast.warn(
+        "Bạn đang ở chế độ ngoại tuyến. Dữ liệu có thể cũ hơn thực tế.",
+      );
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Dọn dẹp listener khi component bị hủy
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
   // Fetch Data
-  // Tìm hàm fetchStalls cũ và thay bằng đoạn này:
   useEffect(() => {
-      const fetchStalls = async () => {
-          try {
-              const response = await stallApi.getAllActive();
-              const data = response.result;
-              
-              setStalls(data);
-              
-              // Cất dữ liệu vào "ngăn kéo" LocalStorage
-              localStorage.setItem('offline_stalls_data', JSON.stringify(data));
+    const fetchStalls = async () => {
+      // 1. LẤY TRONG KHO VÀ HIỂN THỊ NGAY (Tốc độ cực nhanh)
+      const savedData = localStorage.getItem("offline_stalls_data");
+      if (savedData) {
+        setStalls(JSON.parse(savedData));
+        setLoading(false); // Tắt màn hình loading ngay nếu có dữ liệu cũ
+      }
 
-              // --- CHẠY NGẦM VIỆC TẢI TRƯỚC ---
-              prefetchAllAudios(data); // Tải audio (đã làm ở bước trước)
-              prefetchAllMenus(data);  // Tải menu món ăn (mới thêm)
-        // ----------------------
-              
-          } catch (error) {
-              console.error('Error fetching stalls:', error);
-              
-              // Nếu lỗi (thường là do mất mạng), hãy kiểm tra ngăn kéo
-              const savedData = localStorage.getItem('offline_stalls_data');
-              if (savedData) {
-                  setStalls(JSON.parse(savedData));
-                  toast.info("Bạn đang xem ở chế độ ngoại tuyến.");
-              } else {
-                  toast.error("Không có dữ liệu offline. Vui lòng kết nối mạng lần đầu.");
-              }
-          } finally {
-              setLoading(false);
-          }
-      };
-      fetchStalls();
+      // 2. NẾU CÓ MẠNG, CẬP NHẬT DỮ LIỆU MỚI TRONG IM LẶNG
+      if (navigator.onLine) {
+        try {
+          const response = await stallApi.getAllActive();
+          const data = response?.result || []; // Sử dụng ?. để tránh lỗi 'payload'
+
+          setStalls(data);
+          localStorage.setItem("offline_stalls_data", JSON.stringify(data));
+
+          // Chạy tải trước sau khi đã có dữ liệu mới
+          prefetchAllAudios(data);
+          prefetchAllMenus(data);
+        } catch (error) {
+          console.error("Cập nhật dữ liệu ngầm thất bại:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else if (!savedData) {
+        // Chỉ hiện lỗi nếu không có cả mạng lẫn dữ liệu cũ
+        toast.error("Không có dữ liệu. Vui lòng kết nối mạng.");
+        setLoading(false);
+      }
+    };
+    fetchStalls();
   }, []);
 
   // Search & Filter Memo
@@ -205,33 +214,37 @@ export default function MapPage() {
 
   const handleOpenModal = useCallback(async (stall: Stall) => {
     setSelectedStallForModal(stall);
-    setModalLoading(true);
-    
-    try {
-      // 1. Thử lấy menu mới nhất từ API
-      const response = await foodApi.getByStallId(stall.id);
-      const menuData = response.result.filter((item: Food) => item.isAvailable);
-      
-      setModalMenu(menuData);
 
-      // 2. Cập nhật bản sao vào kho offline
-      const savedMenus = JSON.parse(localStorage.getItem('offline_menus_data') || '{}');
-      savedMenus[stall.id] = menuData;
-      localStorage.setItem('offline_menus_data', JSON.stringify(savedMenus));
+    // 1. LẤY DỮ LIỆU OFFLINE HIỆN NGAY (Tốc độ ~0.1s)
+    const savedMenus = JSON.parse(
+      localStorage.getItem("offline_menus_data") || "{}",
+    );
+    const localData = savedMenus[stall.id];
 
-    } catch (error) {
-      console.error('Error fetching modal menu:', error);
-      
-      // 3. Nếu mất mạng, lục trong kho offline xem có menu của quán này chưa
-      const savedMenus = JSON.parse(localStorage.getItem('offline_menus_data') || '{}');
-      if (savedMenus[stall.id]) {
-        setModalMenu(savedMenus[stall.id]);
-        toast.info("Hiển thị menu offline.");
-      } else {
-        toast.error("Không có dữ liệu menu offline cho quán này.");
-      }
-    } finally {
+    if (localData) {
+      setModalMenu(localData);
       setModalLoading(false);
+    } else {
+      setModalLoading(true);
+    }
+
+    // 2. CẬP NHẬT NGẦM (SILENT SYNC) NẾU CÓ MẠNG
+    if (navigator.onLine) {
+      try {
+        const response = await foodApi.getByStallId(stall.id);
+        const menuData = response?.result.filter(
+          (item: Food) => item.isAvailable,
+        );
+
+        // Cập nhật giao diện và bộ nhớ đệm
+        setModalMenu(menuData);
+        savedMenus[stall.id] = menuData;
+        localStorage.setItem("offline_menus_data", JSON.stringify(savedMenus));
+      } catch (err) {
+        console.error("Sync failed", err);
+      } finally {
+        setModalLoading(false);
+      }
     }
   }, []);
 
@@ -305,34 +318,55 @@ export default function MapPage() {
 
   // Hàm tự động tải trước toàn bộ Audio của các quán
   const prefetchAllAudios = async (stallsToCache: Stall[]) => {
-    // Chỉ chạy nếu trình duyệt hỗ trợ Cache và đang có mạng
-    if (!('caches' in window) || !navigator.onLine) return;
+    if (!("caches" in window) || !navigator.onLine) return;
 
-    console.log("Bắt đầu tải trước toàn bộ audio thuyết minh...");
-    const cache = await caches.open('stall-audio-cache');
+    const cache = await caches.open("cloudinary-assets");
+    const savedUrls = JSON.parse(
+      localStorage.getItem("offline_audio_urls") || "{}",
+    );
 
-    for (const stall of stallsToCache) {
+    // Chỉ hiện thanh tiến trình cho những file CHƯA có trong Cache
+    const neededStalls = stallsToCache.filter((s) => !savedUrls[s.id]);
+    if (neededStalls.length === 0) return; // Nếu đủ rồi thì không chạy thanh tiến trình nữa
+
+    setAudioProgress({
+      current: 0,
+      total: neededStalls.length,
+      isSyncing: true,
+    });
+
+    for (let i = 0; i < neededStalls.length; i++) {
+      const stall = neededStalls[i];
       try {
-        // 1. Gọi API lấy URL audio (giống như lúc nhấn nút)
         const res = await audioApi.getStallAudio(stall.id);
-        
-        if (res.result && res.result.audioUrl && res.result.status === "COMPLETED") {
-          const audioUrl = res.result.audioUrl;
+        const url = res?.result?.audioUrl;
 
-          // 2. Kiểm tra xem trong kho đã có chưa
-          const match = await cache.match(audioUrl);
-          if (!match) {
-            // 3. Nếu chưa có thì âm thầm tải về cất đi
-            await cache.add(audioUrl);
-            console.log(`--- Đã tải xong audio: ${stall.name}`);
+        if (url) {
+          // Tải với chế độ CORS để thẻ <audio> đọc được khi Offline
+          const resp = await fetch(url, {
+            mode: "cors",
+            headers: { "ngrok-skip-browser-warning": "true" },
+          });
+
+          if (resp.ok) {
+            await cache.put(url, resp);
+            savedUrls[stall.id] = url;
+            localStorage.setItem(
+              "offline_audio_urls",
+              JSON.stringify(savedUrls),
+            );
           }
         }
-      } catch (err) {
-        // Nếu lỗi 1 file thì bỏ qua để tải tiếp file sau
-        console.warn(`Không thể tải trước audio cho quán ${stall.name}`, err);
+      } catch (e) {
+        console.error(`Lỗi tải nhạc quán ${stall.name}:`, e);
       }
+      setAudioProgress((prev) => ({ ...prev, current: i + 1 }));
     }
-    console.log("Hoàn tất việc tải trước audio!");
+
+    setTimeout(
+      () => setAudioProgress((p) => ({ ...p, isSyncing: false })),
+      2000,
+    );
   };
 
   // Hàm tự động tải trước toàn bộ Menu của các quán
@@ -340,89 +374,66 @@ export default function MapPage() {
     if (!navigator.onLine) return;
 
     console.log("Đang kiểm tra và đồng bộ thực đơn mới nhất...");
-    const savedMenus = JSON.parse(localStorage.getItem('offline_menus_data') || '{}');
+    const savedMenus = JSON.parse(
+      localStorage.getItem("offline_menus_data") || "{}",
+    );
 
     for (const stall of stallsToCache) {
       try {
-        // Thay vì kiểm tra 'if (!savedMenus[stall.id])', 
+        // Thay vì kiểm tra 'if (!savedMenus[stall.id])',
         // chúng ta cứ tải lại để đảm bảo giá cả luôn mới nhất
         const response = await foodApi.getByStallId(stall.id);
-        savedMenus[stall.id] = response.result.filter((item: Food) => item.isAvailable);
+        savedMenus[stall.id] = response?.result?.filter(
+          (item: Food) => item.isAvailable,
+        );
       } catch (err) {
         console.warn(`Lỗi đồng bộ menu quán ${stall.id}`, err);
       }
     }
-    
-    localStorage.setItem('offline_menus_data', JSON.stringify(savedMenus));
+
+    localStorage.setItem("offline_menus_data", JSON.stringify(savedMenus));
     console.log("Đã đồng bộ xong toàn bộ dữ liệu thực đơn!");
   };
 
   const handlePlayStallAudio = async (stall: Stall) => {
     try {
       setIsAudioPlaying(true);
-      const res = await audioApi.getStallAudio(stall.id);
-
-      if (
-        res.result &&
-        res.result.audioUrl &&
-        res.result.status === "COMPLETED"
-      ) {
-        const audioUrl = res.result.audioUrl;
-
-        // --- BẮT ĐẦU LOGIC OFFLINE CHO AUDIO ---
-        // Khi người dùng nhấn nghe, trình duyệt sẽ tự động tải file này 
-        // và cất vào một "kho riêng" tên là 'stall-audio-cache'
-        if ('caches' in window) {
-          try {
-            const cache = await caches.open('stall-audio-cache');
-            // Kiểm tra xem file này đã có trong kho chưa
-            const response = await cache.match(audioUrl);
-            if (!response) {
-              // Nếu chưa có thì mới tải về và cất đi
-              await cache.add(audioUrl);
-              console.log(`Đã lưu offline audio cho: ${stall.name}`);
-            }
-          } catch (cacheError) {
-            // Nếu lưu vào kho lỗi (do bộ nhớ đầy chẳng hạn) thì vẫn cho phát audio bình thường
-            console.warn("Không thể lưu audio vào kho offline:", cacheError);
-          }
-        }
-        // --- KẾT THÚC LOGIC OFFLINE ---
-
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-          audioRef.current.onended = () => {
-            setIsAudioPlaying(false);
-          };
-        }
-
-        audioRef.current.src = audioUrl;
-        audioRef.current.play().catch((e) => {
-          console.warn(
-            "Audio auto-play blocked by browser. User interaction needed.",
-            e,
-          );
-          toast.info("Click để nghe thuyết minh về " + stall.name);
-        });
-
-        heardStalls.current.add(stall.id);
-      } else {
-        toast.info(
-          `Gian hàng ${stall.name} hiện chưa có nội dung audio thuyết minh.`,
-        );
-        setIsAudioPlaying(false);
-      }
-    } catch (error) {
-      console.error("Failed to play stall audio:", error);
-      
-      // Nếu mất mạng hoàn toàn, trình duyệt sẽ tự động tìm trong 'stall-audio-cache' 
-      // nhờ vào Service Worker mà chúng ta đã cấu hình ở các bước trước.
-      toast.error(
-        "Không thể kết nối đến hệ thống audio. Vui lòng kiểm tra mạng.",
+      const savedAudioUrls = JSON.parse(
+        localStorage.getItem("offline_audio_urls") || "{}",
       );
+      const audioUrl = savedAudioUrls[stall.id];
+
+      if (!audioUrl) throw new Error("Chưa có bản offline");
+
+      if (!audioRef.current) audioRef.current = new Audio();
+
+      // THỦ THUẬT: Lấy file trực tiếp từ Cache Storage
+      const cache = await caches.open("cloudinary-assets");
+      const cachedResponse = await cache.match(audioUrl);
+
+      if (cachedResponse) {
+        const blob = await cachedResponse.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        audioRef.current.src = blobUrl;
+      } else if (navigator.onLine) {
+        audioRef.current.src = audioUrl;
+      } else {
+        throw new Error("File không tồn tại trong bộ nhớ đệm");
+      }
+
+      audioRef.current.load();
+      await audioRef.current.play();
+      heardStalls.current.add(stall.id);
+    } catch (error) {
       setIsAudioPlaying(false);
+      toast.error(
+        navigator.onLine
+          ? "Lỗi âm thanh"
+          : "Bản thuyết minh chưa sẵn sàng offline",
+      );
     }
   };
+
   const handleAudioToggle = useCallback(
     (stall: Stall) => {
       if (isAudioPlaying && activeAudioId === stall.id) {
@@ -463,21 +474,49 @@ export default function MapPage() {
 
   return (
     <div className="w-full h-screen relative flex flex-col md:flex-row bg-slate-50 overflow-hidden">
+      {/* Giao diện tiến độ tải Audio Offline */}
+      {audioProgress.isSyncing && (
+        <div className="fixed bottom-24 right-6 z-[1000] bg-slate-900/90 backdrop-blur-md border border-white/10 p-4 rounded-2xl shadow-2xl w-64 animate-in slide-in-from-right-10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">
+              {audioProgress.current === audioProgress.total
+                ? "✓ Đã sẵn sàng Offline"
+                : "⟳ Đang nạp dữ liệu..."}
+            </span>
+            <span className="text-[10px] font-black text-white">
+              {audioProgress.current}/{audioProgress.total}
+            </span>
+          </div>
+
+          {/* Thanh Progress Bar */}
+          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-orange-500 transition-all duration-500 ease-out"
+              style={{
+                width: `${(audioProgress.current / audioProgress.total) * 100}%`,
+              }}
+            />
+          </div>
+
+          <p className="mt-2 text-[9px] text-slate-400 italic">
+            Hệ thống đang tải bản thuyết minh để bạn sử dụng khi mất mạng.
+          </p>
+        </div>
+      )}
       {/* Thêm đoạn này vào một góc nào đó trong giao diện của bạn */}
-<<<<<<< HEAD
-      <div className={`
+      <div
+        className={`
         fixed top-4 left-1/2 -translate-x-1/2 z-[1000] 
         px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest 
         transition-all duration-500
-        ${isOnline 
-          ? 'bg-green-500 text-white opacity-0 pointer-events-none' 
-          : 'bg-rose-500 text-white shadow-lg animate-pulse opacity-100'}
-      `}>
-          {isOnline ? '● Đã kết nối' : '⚠ Đang Offline'}
-=======
-      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500/20 text-green-500 opacity-0' : 'bg-rose-500 text-white shadow-lg animate-pulse opacity-100'}`}>
-          {isOnline ? '● Online' : '⚠ Đang Offline'}
->>>>>>> bfea5a0067428dfc74f9dd9faed9eb71a4997c84
+        ${
+          isOnline
+            ? "bg-green-500 text-white opacity-0 pointer-events-none"
+            : "bg-rose-500 text-white shadow-lg animate-pulse opacity-100"
+        }
+      `}
+      >
+        {isOnline ? "● Đã kết nối" : "⚠ Đang Offline"}
       </div>
       {/* Mobile Toggle Button */}
       <button
