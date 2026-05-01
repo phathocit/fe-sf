@@ -23,7 +23,6 @@ interface MapContentProps {
   handleOpenModal: (stall: Stall) => void;
   getCoords: (stall: Stall) => [number, number];
   getDistanceStr: (coords: [number, number]) => string;
-  geofenceRadius: number;
   userIcon: L.DivIcon;
   createStallIcon: (stall: Stall, isActive: boolean) => L.DivIcon;
   markerRefs: React.MutableRefObject<{ [key: string]: L.Marker | null }>;
@@ -35,7 +34,22 @@ interface MapContentProps {
   t: (key: string, options?: any) => string;
 }
 
-// Điều khiển camera bản đồ khi trung tâm thay đổi
+// Hàm lấy màu sắc ổn định theo ID quán
+const getStallColor = (id: number) => {
+  const colors = [
+    "#3b82f6", // Blue
+    "#ef4444", // Red
+    "#10b981", // Green
+    "#f59e0b", // Amber
+    "#8b5cf6", // Violet
+    "#ec4899", // Pink
+    "#06b6d4", // Cyan
+    "#f97316", // Orange
+  ];
+  return colors[id % colors.length];
+};
+
+// Điều khiển camera bản đồ
 function MapController({ center }: { center: [number, number] }) {
   const map = useMap();
   React.useEffect(() => {
@@ -44,7 +58,7 @@ function MapController({ center }: { center: [number, number] }) {
   return null;
 }
 
-// Xử lý sự kiện click ra ngoài để đóng Popup/Active state
+// Xử lý sự kiện click bản đồ
 function MapEvents({ onMapClick }: { onMapClick: () => void }) {
   useMapEvents({
     click: () => {
@@ -55,6 +69,7 @@ function MapEvents({ onMapClick }: { onMapClick: () => void }) {
 }
 
 const MapContent: React.FC<MapContentProps> = ({
+  stalls,
   filteredStalls,
   userLoc,
   mapCenter,
@@ -64,7 +79,6 @@ const MapContent: React.FC<MapContentProps> = ({
   handleOpenModal,
   getCoords,
   getDistanceStr,
-  geofenceRadius,
   userIcon,
   createStallIcon,
   markerRefs,
@@ -76,7 +90,7 @@ const MapContent: React.FC<MapContentProps> = ({
 }) => {
   const isOnline = navigator.onLine;
 
-  // Kiểm tra xem audio của quán đã được tải về máy chưa
+  // Kiểm tra dữ liệu offline
   const hasOfflineAudio = (stallId: number) => {
     try {
       const savedUrls = JSON.parse(
@@ -90,7 +104,7 @@ const MapContent: React.FC<MapContentProps> = ({
 
   return (
     <div className="flex-1 h-full z-0 relative overflow-hidden bg-slate-100">
-      {/* Nút định vị người dùng (Mobile) */}
+      {/* Nút định vị nhanh trên Mobile */}
       <button
         onClick={locateUser}
         className="md:hidden fixed top-24 right-6 z-[500] w-12 h-12 bg-white text-slate-900 rounded-2xl flex items-center justify-center shadow-2xl border border-slate-200 active:scale-95 transition-all"
@@ -105,7 +119,6 @@ const MapContent: React.FC<MapContentProps> = ({
         zoomControl={false}
         maxZoom={24}
       >
-        {/* Layer bản đồ - Sử dụng Carto để đồng bộ với Cache config */}
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">Carto</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -116,31 +129,48 @@ const MapContent: React.FC<MapContentProps> = ({
         <MapController center={mapCenter} />
         <MapEvents onMapClick={onMapClick} />
 
-        {/* Vị trí người dùng và Vòng Geofence */}
+        {/* Marker vị trí người dùng */}
         {userLoc && (
-          <>
-            <Circle
-              center={userLoc}
-              radius={geofenceRadius}
-              pathOptions={{
-                fillColor: "#3b82f6",
-                fillOpacity: 0.1,
-                color: "#3b82f6",
-                weight: 1,
-                dashArray: "5, 10",
-              }}
-            />
-            <Marker position={userLoc} icon={userIcon}>
-              <Popup className="custom-popup">
-                <div className="font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4">
-                  {t("you_are_here", { defaultValue: "BẠN ĐANG Ở ĐÂY" })}
-                </div>
-              </Popup>
-            </Marker>
-          </>
+          <Marker position={userLoc} icon={userIcon}>
+            <Popup className="custom-popup">
+              <div className="font-black tracking-widest text-[10px] text-slate-900 uppercase py-2 px-4">
+                {t("you_are_here", { defaultValue: "BẠN ĐANG Ở ĐÂY" })}
+              </div>
+            </Popup>
+          </Marker>
         )}
 
-        {/* Danh sách các quán ăn */}
+        {/* VẼ CÁC VÒNG TRÒN RADIUS (GEOFENCE) THÔNG MINH */}
+        {stalls.map((stall) => {
+          const stallCoords = getCoords(stall);
+          const isActive = activeStallId === stall.id;
+
+          // Tính toán trực tiếp xem người dùng có trong bán kính không để tránh dùng Prop mới
+          const isInside = userLoc
+            ? L.latLng(userLoc).distanceTo(L.latLng(stallCoords)) <=
+              (stall.radius || 30)
+            : false;
+
+          // LOGIC: Nếu không đứng trong vùng và không nhấn chọn thì ẩn đi
+          if (!isInside && !isActive) return null;
+
+          return (
+            <Circle
+              key={`radius-circle-${stall.id}`}
+              center={stallCoords}
+              radius={stall.radius || 30}
+              pathOptions={{
+                fillColor: getStallColor(stall.id),
+                fillOpacity: isActive ? 0.18 : 0.08,
+                color: getStallColor(stall.id),
+                weight: 1,
+                dashArray: isInside ? "0" : "6, 10", // Nét liền khi đang ở trong, nét đứt khi chỉ nhấn xem
+              }}
+            />
+          );
+        })}
+
+        {/* HIỂN THỊ CÁC MARKER QUÁN ĂN */}
         {filteredStalls.map((stall) => {
           const coords = getCoords(stall);
           const distanceStr = getDistanceStr(coords);
@@ -162,7 +192,6 @@ const MapContent: React.FC<MapContentProps> = ({
             >
               <Popup className="custom-popup rounded-[30px] overflow-hidden p-0 shadow-2xl border-4 border-white">
                 <div className="w-72 sm:w-80 overflow-hidden bg-white flex flex-col">
-                  {/* Hình ảnh quán - Chống lỗi ảnh undefined bằng fallback */}
                   <div className="relative h-36 sm:h-40 bg-slate-200">
                     <img
                       src={
@@ -201,7 +230,6 @@ const MapContent: React.FC<MapContentProps> = ({
                     </div>
 
                     <div className="flex gap-2 font-bold mt-4">
-                      {/* Nút Xem Menu */}
                       <button
                         onClick={() => handleOpenModal(stall)}
                         className="flex-1 cursor-pointer bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
@@ -210,14 +238,21 @@ const MapContent: React.FC<MapContentProps> = ({
                         {t("view_menu", { defaultValue: "XEM MENU" })}
                       </button>
 
-                      {/* Nút Audio - Vô hiệu hóa nếu offline và chưa tải */}
                       <button
                         onClick={() => onAudioToggle(stall)}
                         disabled={!isOnline && !isDownloaded}
                         className={`
                           flex-1 cursor-pointer text-white text-[10px] font-black uppercase tracking-wider py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95
-                          ${isPlaying ? "bg-rose-600 hover:bg-rose-700" : "bg-orange-600 hover:bg-orange-700"}
-                          ${!isOnline && !isDownloaded ? "opacity-40 grayscale cursor-not-allowed" : ""}
+                          ${
+                            isPlaying
+                              ? "bg-rose-600 hover:bg-rose-700"
+                              : "bg-orange-600 hover:bg-orange-700"
+                          }
+                          ${
+                            !isOnline && !isDownloaded
+                              ? "opacity-40 grayscale cursor-not-allowed"
+                              : ""
+                          }
                         `}
                       >
                         {isPlaying ? (
@@ -230,7 +265,9 @@ const MapContent: React.FC<MapContentProps> = ({
                             <Play size={14} />
                             {!isOnline && !isDownloaded
                               ? t("offline", { defaultValue: "OFFLINE" })
-                              : t("play_audio", { defaultValue: "NGHE AUDIO" })}
+                              : t("play_audio", {
+                                  defaultValue: "NGHE AUDIO",
+                                })}
                           </>
                         )}
                       </button>
@@ -243,7 +280,6 @@ const MapContent: React.FC<MapContentProps> = ({
         })}
       </MapContainer>
 
-      {/* Tối ưu CSS cho Popup và Animation */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -269,13 +305,6 @@ const MapContent: React.FC<MapContentProps> = ({
           .custom-popup .leaflet-popup-close-button:hover {
             background-color: #ea580c !important;
             transform: scale(1.1);
-          }
-
-          .pulse-animation { animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
-          @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(37, 99, 235, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
           }
         `,
         }}

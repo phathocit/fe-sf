@@ -70,9 +70,27 @@ export default function MapPage() {
 
   const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const heardStalls = useRef<Set<number>>(new Set());
-  const geofenceRadius = 25;
+  // const heardStalls = useRef<Set<number>>(new Set());
+  const lastHeardTimes = useRef<Map<number, number>>(new Map());
+  // const geofenceRadius = 25;
   const voiceTourEnabled = true;
+
+  // Thêm state để theo dõi thông tin phục vụ thông báo/debug
+  const [nearbyInfo, setNearbyInfo] = useState<{
+    name: string;
+    priority: number;
+    cooldownLeft: number;
+    totalCooldown: number; // Thêm dòng này để TypeScript nhận diện thuộc tính mới
+  } | null>(null);
+
+  // Hàm dừng audio tập trung
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsAudioPlaying(false);
+    setActiveAudioId(null);
+  }, []);
 
   // State theo dõi tiến độ tải audio
   const [audioProgress, setAudioProgress] = useState({
@@ -218,13 +236,14 @@ export default function MapPage() {
     [userLoc],
   );
 
-  const isInsideGeofence = useCallback(
-    (coords: [number, number]) => {
+  const isInsideStallGeofence = useCallback(
+    (stall: Stall) => {
       if (!userLoc) return false;
-      const distance = L.latLng(userLoc).distanceTo(L.latLng(coords));
-      return distance <= geofenceRadius;
+      const distance = L.latLng(userLoc).distanceTo(L.latLng(getCoords(stall)));
+      // Sử dụng radius từ Backend, nếu không có thì mặc định là 30
+      return distance <= (stall.radius || 30);
     },
-    [userLoc],
+    [userLoc, getCoords],
   );
 
   // Handlers
@@ -327,37 +346,66 @@ export default function MapPage() {
     }
   }, [searchParams, stalls, handleStallClick]);
 
-  // Voice Tour / Alert Effect
+  // Nơi xử lý Priority và CoolDown
   useEffect(() => {
-    if (!userLoc || !voiceTourEnabled || stalls.length === 0) {
-      if (activeAudioId !== null) setActiveAudioId(null);
-      return;
-    }
+    if (!userLoc || !voiceTourEnabled || stalls.length === 0) return;
 
-    const stallInside = stalls.find((s) => isInsideGeofence(getCoords(s)));
+    const now = Date.now();
 
-    if (stallInside) {
-      if (activeAudioId !== stallInside.id) {
-        setActiveAudioId(stallInside.id);
+    // 1. Tìm tất cả quán trong bán kính
+    const stallsInRange = stalls.filter((s) => isInsideStallGeofence(s));
 
-        // Automatically play audio if inside zone and not already heard in this 'visit'
-        if (!heardStalls.current.has(stallInside.id)) {
-          handlePlayStallAudio(stallInside);
+    if (stallsInRange.length > 0) {
+      // 2. Lọc ra những quán ĐÃ HẾT thời gian hồi chiêu (hoặc chưa phát bao giờ)
+      const availableStalls = stallsInRange.filter((s) => {
+        const lastTime = lastHeardTimes.current.get(s.id) || 0;
+        const cooldownMs = (s.cooldownSeconds ?? 10) * 1000; // Dùng ?? 10 để khớp DB
+        return now - lastTime > cooldownMs;
+      });
+
+      if (availableStalls.length > 0) {
+        // 3. Trong những quán "sẵn sàng", chọn quán có Priority cao nhất
+        const priorityStall = [...availableStalls].sort(
+          (a, b) => (b.priority || 0) - (a.priority || 0),
+        )[0];
+
+        // Sửa điều kiện kích hoạt:
+        // Phát nếu (Đổi sang quán mới) HOẶC (Quán cũ đã hết cooldown và nhạc đã ngừng)
+        if (activeAudioId !== priorityStall.id || !isAudioPlaying) {
+          setActiveAudioId(priorityStall.id);
+          handlePlayStallAudio(priorityStall);
         }
       }
+
+      // Cập nhật thông tin quán gần nhất để hiển thị Debug (Lấy quán ưu tiên nhất kể cả đang cooldown)
+      const topStall = [...stallsInRange].sort(
+        (a, b) => (b.priority || 0) - (a.priority || 0),
+      )[0];
+      const lastTime = lastHeardTimes.current.get(topStall.id) || 0;
+      const cooldownLeft = Math.max(
+        0,
+        Math.ceil(
+          ((topStall.cooldownSeconds ?? 10) * 1000 - (now - lastTime)) / 1000,
+        ),
+      );
+
+      setNearbyInfo({
+        name: topStall.name,
+        priority: topStall.priority || 0,
+        cooldownLeft: cooldownLeft,
+        totalCooldown: topStall.cooldownSeconds ?? 10, // Thêm cái này để hiển thị
+      });
     } else {
-      if (activeAudioId !== null) {
-        setActiveAudioId(null);
-        // Optionally stop audio when leaving zone, but usually we let it finish
-      }
+      if (activeAudioId !== null) stopAudio();
+      setNearbyInfo(null);
     }
   }, [
     userLoc,
     voiceTourEnabled,
-    activeAudioId,
-    isInsideGeofence,
     stalls,
-    getCoords,
+    isInsideStallGeofence,
+    activeAudioId,
+    stopAudio,
   ]);
 
   // Hàm tự động tải trước toàn bộ Audio của các quán
@@ -441,7 +489,6 @@ export default function MapPage() {
 
   const handlePlayStallAudio = async (stall: Stall) => {
     try {
-      setIsAudioPlaying(true);
       const savedAudioUrls = JSON.parse(
         localStorage.getItem("offline_audio_urls") || "{}",
       );
@@ -449,32 +496,61 @@ export default function MapPage() {
 
       if (!audioUrl) throw new Error("Chưa có bản offline");
 
-      if (!audioRef.current) audioRef.current = new Audio();
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+      }
 
-      // THỦ THUẬT: Lấy file trực tiếp từ Cache Storage
+      const now = Date.now();
+      const lastTime = lastHeardTimes.current.get(stall.id) || 0;
+      const cooldownMs = (stall.cooldownSeconds ?? 10) * 1000;
+      const isExpired = now - lastTime > cooldownMs;
+
       const cache = await caches.open("cloudinary-assets");
       const cachedResponse = await cache.match(audioUrl);
 
+      let targetSrc = audioUrl;
       if (cachedResponse) {
         const blob = await cachedResponse.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        audioRef.current.src = blobUrl;
-      } else if (navigator.onLine) {
-        audioRef.current.src = audioUrl;
-      } else {
-        throw new Error("File không tồn tại trong bộ nhớ đệm");
+        targetSrc = URL.createObjectURL(blob);
       }
 
-      audioRef.current.load();
-      await audioRef.current.play();
-      heardStalls.current.add(stall.id);
-    } catch (error) {
+      if (audioRef.current.src !== targetSrc || isExpired) {
+        audioRef.current.src = targetSrc;
+        audioRef.current.load();
+        audioRef.current.currentTime = 0;
+      }
+
+      // Thiết lập sự kiện kết thúc
+      audioRef.current.onended = () => {
+        setIsAudioPlaying(false);
+      };
+
+      // Đợi audio thực sự bắt đầu phát
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        // QUAN TRỌNG: Chỉ set true và lưu mốc thời gian khi KHÔNG CÓ LỖI
+        setIsAudioPlaying(true);
+        if (isExpired) {
+          lastHeardTimes.current.set(stall.id, Date.now());
+        }
+      }
+    } catch (error: any) {
+      // Bỏ qua lỗi ngắt quãng do di chuyển quá nhanh (Race Condition)
+      if (error.name === "AbortError") {
+        return;
+      }
+
       setIsAudioPlaying(false);
       toast.error(
         navigator.onLine
           ? "Lỗi âm thanh"
           : "Bản thuyết minh chưa sẵn sàng offline",
       );
+      console.error("Audio Playback Error:", error);
+
+      // NẾU LỖI, lastHeardTimes SẼ KHÔNG ĐƯỢC CẬP NHẬT.
+      // -> Stall Đỏ vẫn giữ nguyên quyền ưu tiên ở lần di chuyển kế tiếp.
     }
   };
 
@@ -639,7 +715,7 @@ export default function MapPage() {
           categories={categories}
           activeStallId={activeStallId}
           onStallClick={handleStallClick}
-          isInsideGeofence={isInsideGeofence}
+          isInsideStallGeofence={isInsideStallGeofence}
           getDistanceStr={getDistanceStr}
           getCoords={getCoords}
           locateUser={locateUser}
@@ -660,7 +736,7 @@ export default function MapPage() {
           handleOpenModal={handleOpenModal}
           getCoords={getCoords}
           getDistanceStr={getDistanceStr}
-          geofenceRadius={geofenceRadius}
+          // geofenceRadius={geofenceRadius}
           userIcon={userIcon}
           createStallIcon={createStallIcon}
           markerRefs={markerRefs}
@@ -690,6 +766,49 @@ export default function MapPage() {
         t={t}
         onClose={() => setSelectedStallForModal(null)}
       />
+
+      {/* Bảng theo dõi Logic Tour (Priority/Cooldown) */}
+      {nearbyInfo && (
+        <div className="fixed bottom-32 left-6 z-[1000] bg-slate-900/95 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl w-64">
+          <div className="text-[10px] font-black text-orange-400 uppercase mb-2 tracking-widest">
+            Hệ thống Geofence
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
+              <span className="text-[9px] text-slate-400 uppercase">Quán:</span>
+              <span className="text-xs font-bold text-white truncate ml-2">
+                {nearbyInfo.name}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+                <div className="text-[8px] text-slate-400 uppercase">
+                  Độ ưu tiên
+                </div>
+                <div className="text-sm font-black text-orange-500">
+                  P{nearbyInfo.priority}
+                </div>
+              </div>
+              <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+                <div className="text-[8px] text-slate-400 uppercase">
+                  Hồi chiêu (BE)
+                </div>
+                <div className="text-sm font-black text-blue-400">
+                  {nearbyInfo.cooldownLeft > 0
+                    ? `${nearbyInfo.cooldownLeft}s`
+                    : "Sẵn sàng"}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[8px] text-slate-500 italic">
+              * Config: {nearbyInfo.totalCooldown}s cooldown
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
