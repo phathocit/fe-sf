@@ -37,9 +37,30 @@ interface MapContentProps {
 
 function MapController({ center }: { center: [number, number] }) {
 	const map = useMap();
+
 	React.useEffect(() => {
-		map.flyTo(center, 21, { animate: true, duration: 1.5 });
+		const handleResize = () => {
+			map.invalidateSize();
+		};
+
+		window.addEventListener('resize', handleResize);
+
+		map.invalidateSize();
+
+		setTimeout(() => {
+			map.invalidateSize();
+		}, 300);
+
+		map.flyTo(center, 21, {
+			animate: true,
+			duration: 1.5,
+		});
+
+		return () => {
+			window.removeEventListener('resize', handleResize);
+		};
 	}, [center, map]);
+
 	return null;
 }
 
@@ -49,6 +70,7 @@ function MapEvents({ onMapClick }: { onMapClick: () => void }) {
 			onMapClick();
 		},
 	});
+
 	return null;
 }
 
@@ -83,19 +105,20 @@ const MapContent: React.FC<MapContentProps> = ({
 				<Navigation size={24} className='text-orange-600' />
 			</button>
 			<MapContainer
+				key={mapCenter.join(',')}
 				center={mapCenter}
 				zoom={20}
-				className='w-full h-full'
+				style={{ width: '100%', height: '100vh' }}
 				zoomControl={false}
 				maxZoom={24}
 			>
 				<TileLayer
-					attribution='&copy; <a href="https://carto.com/">Carto</a>'
-					url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+					attribution='&copy; OpenStreetMap contributors'
+					url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 				/>
 				<MapController center={mapCenter} />
 				<MapEvents onMapClick={onMapClick} />
-
+			
 				{currentUserLoc && (
 					<>
 						<Circle

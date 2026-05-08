@@ -6,15 +6,25 @@ const foodApi = {
 	getAll: (): Promise<ApiResponse<Food[]>> => {
 		return axiosClient.get('/foods');
 	},
-	getByStallId: (stallId: number): Promise<ApiResponse<Food[]>> => {
-		return axiosClient.get(`/foods/stall/${stallId}`);
+
+	getByStallId: (
+		stallId: number,
+		lang: string = 'vi',
+	): Promise<ApiResponse<Food[]>> => {
+		return axiosClient.get(`/foods/stall/${stallId}?lang=${lang}`);
 	},
+
 	create: (data: Partial<Food>): Promise<ApiResponse<Food>> => {
 		return axiosClient.post('/foods', data);
 	},
-	update: (id: string | number, data: Partial<Food>): Promise<ApiResponse<Food>> => {
+
+	update: (
+		id: string | number,
+		data: Partial<Food>,
+	): Promise<ApiResponse<Food>> => {
 		return axiosClient.put(`/foods/${id}`, data);
 	},
+
 	delete: (id: string | number): Promise<ApiResponse<void>> => {
 		return axiosClient.delete(`/foods/${id}`);
 	},

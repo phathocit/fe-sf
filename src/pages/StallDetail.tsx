@@ -8,7 +8,7 @@ import { MapPin, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function StallDetail() {
-	const { t } = useTranslation('stall');
+	const { t, i18n } = useTranslation('stall');
 	const { id } = useParams();
 	const [stall, setStall] = useState<Stall | null>(null);
 	const [foods, setFoods] = useState<Food[]>([]);
@@ -27,8 +27,8 @@ export default function StallDetail() {
 			if (!id) return;
 			try {
 				const [stallRes, foodsRes] = await Promise.all([
-					stallApi.getById(Number(id)),
-					foodApi.getByStallId(Number(id)),
+					stallApi.getById(Number(id), i18n.language),
+					foodApi.getByStallId(Number(id), i18n.language),
 				]);
 				setStall(stallRes.result);
 				setFoods(foodsRes.result.filter((item: Food) => item.isAvailable));
@@ -40,7 +40,7 @@ export default function StallDetail() {
 		};
 
 		fetchData();
-	}, [id]);
+	}, [id, i18n.language]);
 
 	if (loading) {
 		return (

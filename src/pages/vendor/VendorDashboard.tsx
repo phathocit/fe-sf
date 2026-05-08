@@ -10,7 +10,7 @@ import cloudinaryApi from '../../api/cloudinaryApi';
 import VendorSidebar from '../../components/vendor/VendorSidebar';
 import MenuManager from '../../components/vendor/MenuManager';
 import Analytics from '../../components/vendor/Analytics';
-import ShopSettings from '../../components/vendor/ShopSettings';
+/*import ShopSettings from '../../components/vendor/ShopSettings';*/
 import MenuModal from '../../components/vendor/MenuModal';
 import LocationModal from '../../components/vendor/LocationModal';
 import VendorPending from '../../components/vendor/VendorPending';
@@ -130,7 +130,7 @@ export default function VendorDashboard() {
 		}
 	};
 
-	const handleSaveStall = async (e: React.FormEvent) => {
+	/*const handleSaveStall = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!stall || !tmpStall) return;
 
@@ -173,7 +173,7 @@ export default function VendorDashboard() {
 			console.error('Failed to update stall info:', error);
 			toast.error('Có lỗi xảy ra khi cập nhật thông tin gian hàng!');
 		}
-	};
+	};*/
 
 	if (isLoading) return <VendorLoading />;
 	if (isPending) return <VendorPending onLogout={handleLogout} />;
@@ -223,14 +223,14 @@ export default function VendorDashboard() {
 					/>
 				)}
 				{activeTab === 'analytics' && <Analytics />}
-				{activeTab === 'settings' && (
+				{activeTab === 'settings' /*&& /* (
 					<ShopSettings
 						tmpStall={tmpStall}
 						onStallChange={setTmpStall}
 						onSaveStall={handleSaveStall}
 						onOpenLocModal={() => setIsLocModalOpen(true)}
 					/>
-				)}
+				)*/}
 			</div>
 
 			{isModalOpen && currentItem && (
