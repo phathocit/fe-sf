@@ -25,6 +25,17 @@ const visitApi = {
   getAudioStats: (): Promise<ApiResponse<any>> => {
     return axiosClient.get("/analytics/stall-audio");
   },
+  getDashboard() {
+    return axiosClient.get("/analytics/dashboard");
+  },
+
+  audioPlay(stallId: number, deviceId: string) {
+    return axiosClient.post(`/analytics/audio/${stallId}/play`, null, {
+      params: {
+        deviceId,
+      },
+    });
+  },
 };
 
 export default visitApi;
