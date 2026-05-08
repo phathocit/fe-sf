@@ -84,13 +84,20 @@ export default function MapPage() {
   } | null>(null);
 
   // Hàm dừng audio tập trung
+  // Cập nhật hàm stopAudio
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+
+      // NẾU đang có audio phát dở mà bị ngắt (do ra khỏi vùng hoặc bấm tắt)
+      // thì ghi nhận cooldown ngay tại thời điểm bị ngắt.
+      if (activeAudioId) {
+        lastHeardTimes.current.set(activeAudioId, Date.now());
+      }
     }
     setIsAudioPlaying(false);
     setActiveAudioId(null);
-  }, []);
+  }, [activeAudioId]); // Thêm activeAudioId vào dependency để lấy được ID quán hiện tại
 
   // State theo dõi tiến độ tải audio
   const [audioProgress, setAudioProgress] = useState({
@@ -352,58 +359,80 @@ export default function MapPage() {
 
     const now = Date.now();
 
-    // 1. Tìm tất cả quán trong bán kính
-    const stallsInRange = stalls.filter((s) => isInsideStallGeofence(s));
+    // 1. Tìm các quán trong bán kính
+    const stallsInRange = stalls.filter((s) => {
+      const distance = L.latLng(userLoc).distanceTo(
+        L.latLng([Number(s.latitude), Number(s.longitude)]),
+      );
+      return distance <= (s.radius || 30);
+    });
+
+    // LOGIC MỚI: KIỂM TRA RỜI VÙNG
+    // Nếu đang phát nhạc mà quán đó không còn nằm trong phạm vi nữa -> Ngắt ngay
+    const isPlayingStillInRange = stallsInRange.some(
+      (s) => s.id === activeAudioId,
+    );
+    if (activeAudioId && !isPlayingStillInRange) {
+      stopAudio(); // Hàm này giờ đã bao gồm việc set cooldown ngay khi ngắt
+      return; // Dừng xử lý loop này để chờ lần di chuyển kế tiếp
+    }
 
     if (stallsInRange.length > 0) {
-      // 2. Lọc ra những quán ĐÃ HẾT thời gian hồi chiêu (hoặc chưa phát bao giờ)
-      const availableStalls = stallsInRange.filter((s) => {
+      const sortedStalls = [...stallsInRange].sort(
+        (a, b) => (b.priority || 0) - (a.priority || 0),
+      );
+
+      // 2. Tìm quán sẵn sàng phát (đã hết cooldown)
+      const bestAvailableStall = sortedStalls.find((s) => {
         const lastTime = lastHeardTimes.current.get(s.id) || 0;
-        const cooldownMs = (s.cooldownSeconds ?? 10) * 1000; // Dùng ?? 10 để khớp DB
+        const cooldownMs = (s.cooldownSeconds ?? 10) * 1000;
         return now - lastTime > cooldownMs;
       });
 
-      if (availableStalls.length > 0) {
-        // 3. Trong những quán "sẵn sàng", chọn quán có Priority cao nhất
-        const priorityStall = [...availableStalls].sort(
-          (a, b) => (b.priority || 0) - (a.priority || 0),
-        )[0];
+      if (bestAvailableStall) {
+        const currentPlayingStall = stalls.find((s) => s.id === activeAudioId);
+        const isHigherPriority =
+          (bestAvailableStall.priority || 0) >
+          (currentPlayingStall?.priority || 0);
 
-        // Sửa điều kiện kích hoạt:
-        // Phát nếu (Đổi sang quán mới) HOẶC (Quán cũ đã hết cooldown và nhạc đã ngừng)
-        if (activeAudioId !== priorityStall.id || !isAudioPlaying) {
-          setActiveAudioId(priorityStall.id);
-          handlePlayStallAudio(priorityStall);
+        // Phát nếu đang im lặng HOẶC quán mới có ưu tiên cao hơn quán đang phát
+        if (
+          activeAudioId !== bestAvailableStall.id &&
+          (!isAudioPlaying || isHigherPriority)
+        ) {
+          handlePlayStallAudio(bestAvailableStall);
+        } else if (!isAudioPlaying && activeAudioId === bestAvailableStall.id) {
+          handlePlayStallAudio(bestAvailableStall);
         }
       }
 
-      // Cập nhật thông tin quán gần nhất để hiển thị Debug (Lấy quán ưu tiên nhất kể cả đang cooldown)
-      const topStall = [...stallsInRange].sort(
-        (a, b) => (b.priority || 0) - (a.priority || 0),
-      )[0];
-      const lastTime = lastHeardTimes.current.get(topStall.id) || 0;
+      // 3. Cập nhật thông tin quán đỉnh nhất để debug
+      const topStall = sortedStalls[0];
+      const lastTimeTop = lastHeardTimes.current.get(topStall.id) || 0;
+      const cooldownMsTop = (topStall.cooldownSeconds ?? 10) * 1000;
       const cooldownLeft = Math.max(
         0,
-        Math.ceil(
-          ((topStall.cooldownSeconds ?? 10) * 1000 - (now - lastTime)) / 1000,
-        ),
+        Math.ceil((cooldownMsTop - (now - lastTimeTop)) / 1000),
       );
 
       setNearbyInfo({
         name: topStall.name,
         priority: topStall.priority || 0,
         cooldownLeft: cooldownLeft,
-        totalCooldown: topStall.cooldownSeconds ?? 10, // Thêm cái này để hiển thị
+        totalCooldown: topStall.cooldownSeconds ?? 10,
       });
     } else {
-      if (activeAudioId !== null) stopAudio();
+      // Trường hợp đi ra khỏi mọi vùng Geofence
+      if (isAudioPlaying) {
+        stopAudio();
+      }
       setNearbyInfo(null);
     }
   }, [
     userLoc,
     voiceTourEnabled,
     stalls,
-    isInsideStallGeofence,
+    isAudioPlaying,
     activeAudioId,
     stopAudio,
   ]);
@@ -487,70 +516,51 @@ export default function MapPage() {
     console.log("Đã đồng bộ xong toàn bộ dữ liệu thực đơn!");
   };
 
+  // Cập nhật hàm handlePlayStallAudio
   const handlePlayStallAudio = async (stall: Stall) => {
     try {
       const savedAudioUrls = JSON.parse(
         localStorage.getItem("offline_audio_urls") || "{}",
       );
       const audioUrl = savedAudioUrls[stall.id];
-
       if (!audioUrl) throw new Error("Chưa có bản offline");
 
-      if (!audioRef.current) {
-        audioRef.current = new Audio();
-      }
+      if (!audioRef.current) audioRef.current = new Audio();
 
-      const now = Date.now();
-      const lastTime = lastHeardTimes.current.get(stall.id) || 0;
-      const cooldownMs = (stall.cooldownSeconds ?? 10) * 1000;
-      const isExpired = now - lastTime > cooldownMs;
+      // Nếu đang phát một quán khác (ưu tiên thấp hơn) mà bị quán này "đè" lên
+      if (isAudioPlaying && activeAudioId && activeAudioId !== stall.id) {
+        lastHeardTimes.current.set(activeAudioId, Date.now()); // Chốt cooldown cho quán cũ bị đè
+        audioRef.current.pause();
+      }
 
       const cache = await caches.open("cloudinary-assets");
       const cachedResponse = await cache.match(audioUrl);
-
       let targetSrc = audioUrl;
       if (cachedResponse) {
         const blob = await cachedResponse.blob();
         targetSrc = URL.createObjectURL(blob);
       }
 
-      if (audioRef.current.src !== targetSrc || isExpired) {
+      if (audioRef.current.src !== targetSrc) {
         audioRef.current.src = targetSrc;
         audioRef.current.load();
-        audioRef.current.currentTime = 0;
       }
 
-      // Thiết lập sự kiện kết thúc
+      // Khi kết thúc tự nhiên
       audioRef.current.onended = () => {
         setIsAudioPlaying(false);
+        lastHeardTimes.current.set(stall.id, Date.now());
       };
 
-      // Đợi audio thực sự bắt đầu phát
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         await playPromise;
-        // QUAN TRỌNG: Chỉ set true và lưu mốc thời gian khi KHÔNG CÓ LỖI
         setIsAudioPlaying(true);
-        if (isExpired) {
-          lastHeardTimes.current.set(stall.id, Date.now());
-        }
+        setActiveAudioId(stall.id);
       }
-    } catch (error: any) {
-      // Bỏ qua lỗi ngắt quãng do di chuyển quá nhanh (Race Condition)
-      if (error.name === "AbortError") {
-        return;
-      }
-
+    } catch (error) {
       setIsAudioPlaying(false);
-      toast.error(
-        navigator.onLine
-          ? "Lỗi âm thanh"
-          : "Bản thuyết minh chưa sẵn sàng offline",
-      );
-      console.error("Audio Playback Error:", error);
-
-      // NẾU LỖI, lastHeardTimes SẼ KHÔNG ĐƯỢC CẬP NHẬT.
-      // -> Stall Đỏ vẫn giữ nguyên quyền ưu tiên ở lần di chuyển kế tiếp.
+      console.error("Playback error:", error);
     }
   };
 
