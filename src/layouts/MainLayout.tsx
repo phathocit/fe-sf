@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { MapIcon, ShieldAlert, StoreIcon, HomeIcon, Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import VisitLogger from "../components/VisitLogger";
+import { LANGUAGES } from "../constants/languages";
 
 export default function MainLayout() {
   const { t, i18n } = useTranslation("common");
@@ -99,21 +100,11 @@ export default function MainLayout() {
                 onChange={(e) => i18n.changeLanguage(e.target.value)}
                 className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-400 focus:outline-none cursor-pointer pr-4 hover:text-white transition-colors"
               >
-                <option value="vi" className="bg-slate-900">
-                  VI
-                </option>
-                <option value="en" className="bg-slate-900">
-                  EN
-                </option>
-                <option value="ko" className="bg-slate-900">
-                  KO
-                </option>
-                <option value="ja" className="bg-slate-900">
-                  JA
-                </option>
-                <option value="zh" className="bg-slate-900">
-                  ZH
-                </option>
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

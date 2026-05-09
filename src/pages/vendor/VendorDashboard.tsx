@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 
 import { useAuth } from "../../context/AuthContext";
 import type { StallTranslation } from "../../api/audioApi";
+import audioApi from "../../api/audioApi";
 
 export default function VendorDashboard() {
   const { user: account, logout } = useAuth();
@@ -37,6 +38,33 @@ export default function VendorDashboard() {
   const [selectedAudioLang, setSelectedAudioLang] = useState("vi");
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [translatedScript, setTranslatedScript] = useState("");
+
+  useEffect(() => {
+    const translateScript = async () => {
+      if (!tmpStall.script) {
+        setTranslatedScript("");
+        return;
+      }
+
+      // Ngôn ngữ gốc
+      if (selectedAudioLang === "vi") {
+        setTranslatedScript(tmpStall.script as string);
+        return;
+      }
+
+      try {
+        // TODO: gọi API dịch thật
+        // Demo tạm:
+        setTranslatedScript(`[${selectedAudioLang}] ${tmpStall.script}`);
+      } catch (error) {
+        console.error(error);
+        setTranslatedScript("");
+      }
+    };
+
+    translateScript();
+  }, [selectedAudioLang, tmpStall.script]);
 
   useEffect(() => {
     if (account) {
@@ -205,12 +233,33 @@ export default function VendorDashboard() {
   };
 
   const handleGenerateAudio = async () => {
-    if (!stall?.id) return;
+    if (!stall?.id || !translatedScript) {
+      toast.warning("Không có nội dung để tạo audio");
+      return;
+    }
+
     try {
       setIsGeneratingAudio(true);
-      // Giả sử bạn gọi API ở đây:
-      // await audioApi.generate(stall.id, selectedAudioLang);
-      toast.info("Yêu cầu tạo âm thanh đang được xử lý...");
+
+      const existing = translations.find(
+        (t) => t.languageCode === selectedAudioLang,
+      );
+
+      if (existing) {
+        await audioApi.updateTranslation(existing.id, {
+          stallId: stall.id,
+          languageCode: selectedAudioLang,
+          ttsScript: translatedScript,
+        });
+      } else {
+        await audioApi.createTranslation({
+          stallId: stall.id,
+          languageCode: selectedAudioLang,
+          ttsScript: translatedScript,
+        });
+      }
+
+      toast.success("Đã tạo audio thành công!");
     } catch (error) {
       console.error("Failed to generate audio:", error);
       toast.error("Có lỗi xảy ra khi tạo âm thanh!");
@@ -286,6 +335,7 @@ export default function VendorDashboard() {
             isGeneratingAudio={isGeneratingAudio}
             onPlayAudio={handlePlayAudio}
             isPlaying={isPlaying}
+            translatedScript={translatedScript}
           />
         )}
       </div>

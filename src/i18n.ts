@@ -10,6 +10,19 @@ i18n
   .init({
     fallbackLng: "vi",
     debug: false,
+    supportedLngs: [
+      "en-US",
+      "zh",
+      "es",
+      "hi",
+      "ar",
+      "fr",
+      "ru",
+      "pt",
+      "ja",
+      "ko",
+      "vi",
+    ],
     ns: ["common", "auth", "home", "map", "stall"],
     defaultNS: "common",
     interpolation: {
