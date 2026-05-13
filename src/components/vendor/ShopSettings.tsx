@@ -43,7 +43,7 @@ export default function ShopSettings({
   isGeneratingAudio,
   onPlayAudio,
   isPlaying,
-  translatedScript,
+  // translatedScript,
 }: ShopSettingsProps) {
   //   const currentTranslation = translations.find(
   //     (t) => t.languageCode === selectedAudioLang,
@@ -187,7 +187,8 @@ export default function ShopSettings({
               </div>
               <textarea
                 rows={6}
-                value={translatedScript || ""}
+                // value={translatedScript || ""}
+                value={tmpStall.script || ""}
                 onChange={(e) =>
                   onStallChange({
                     ...tmpStall,
@@ -257,6 +258,12 @@ export default function ShopSettings({
                         const current = translations.find(
                           (t) => t.languageCode === selectedAudioLang,
                         );
+                        if (!current?.audioUrl) {
+                          toast.info(
+                            "Ngôn ngữ này chưa có Audio. Hãy bấm 'Gen Audio' trước!",
+                          );
+                          return;
+                        }
                         onPlayAudio(current?.audioUrl);
                       }}
                       className="bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer h-[46px]"
@@ -288,7 +295,8 @@ export default function ShopSettings({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {translations.map((t) => (
                         <div
-                          key={t.id}
+                          // key={t.id}
+                          key={`${t.id}-${t.languageCode}`}
                           className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm"
                         >
                           <div className="flex items-center gap-3">
