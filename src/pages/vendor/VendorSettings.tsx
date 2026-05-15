@@ -79,7 +79,7 @@ export default function VendorSettings() {
   };
 
   const handleGenerateAudio = async () => {
-    if (!stall || !tmpStall.script) {
+    if (!stall || !tmpStall.ttsScript) {
       toast.warning("Vui lòng nhập kịch bản trước khi gen audio!");
       return;
     }

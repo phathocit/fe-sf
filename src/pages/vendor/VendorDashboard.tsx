@@ -42,21 +42,21 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     const translateScript = async () => {
-      if (!tmpStall.script) {
+      if (!tmpStall.ttsScript) {
         setTranslatedScript("");
         return;
       }
 
       // Ngôn ngữ gốc
       if (selectedAudioLang === "vi") {
-        setTranslatedScript(tmpStall.script as string);
+        setTranslatedScript(tmpStall.ttsScript as string);
         return;
       }
 
       try {
         // TODO: gọi API dịch thật
         // Demo tạm:
-        setTranslatedScript(`[${selectedAudioLang}] ${tmpStall.script}`);
+        setTranslatedScript(`[${selectedAudioLang}] ${tmpStall.ttsScript}`);
       } catch (error) {
         console.error(error);
         setTranslatedScript("");
@@ -64,7 +64,7 @@ export default function VendorDashboard() {
     };
 
     translateScript();
-  }, [selectedAudioLang, tmpStall.script]);
+  }, [selectedAudioLang, tmpStall.ttsScript]);
 
   useEffect(() => {
     if (account) {

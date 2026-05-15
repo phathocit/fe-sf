@@ -64,6 +64,10 @@ export default function ShopSettings({
     });
   };
 
+  const getLanguageInfo = (code: string) => {
+    return LANGUAGES.find((lang) => lang.code === code);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-12">
@@ -159,7 +163,7 @@ export default function ShopSettings({
                 </div>
               </div>
             </div>
-            <div className="col-span-2">
+            {/* <div className="col-span-2">
               <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-4">
                 Giới thiệu về gian hàng
               </label>
@@ -175,7 +179,7 @@ export default function ShopSettings({
                 className="w-full bg-slate-50 border border-slate-100 px-8 py-5 rounded-2xl font-bold focus:outline-none focus:ring-8 focus:ring-orange-500/10 focus:border-orange-500 transition-all resize-none leading-relaxed text-slate-600"
                 placeholder="VD: Quán chuyên các món hải sản bình dân vùng biển..."
               />
-            </div>
+            </div> */}
             <div className="col-span-2">
               <div className="flex items-center gap-3 mb-4">
                 <label className="block text-xs font-black uppercase tracking-widest text-slate-400">
@@ -188,11 +192,11 @@ export default function ShopSettings({
               <textarea
                 rows={6}
                 // value={translatedScript || ""}
-                value={tmpStall.script || ""}
+                value={tmpStall.ttsScript || ""}
                 onChange={(e) =>
                   onStallChange({
                     ...tmpStall,
-                    script: e.target.value,
+                    ttsScript: e.target.value,
                   })
                 }
                 className="w-full bg-slate-900 border border-slate-800 px-8 py-6 rounded-2xl font-bold focus:outline-none focus:ring-8 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none leading-relaxed text-orange-100 placeholder:text-slate-700"
@@ -300,20 +304,13 @@ export default function ShopSettings({
                           className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 font-black text-xs">
-                              {t.languageCode.toUpperCase()}
+                            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-sm">
+                              {getLanguageInfo(t.languageCode)?.flag || "🌐"}
                             </div>
                             <div>
                               <p className="text-[10px] font-black text-slate-900 uppercase">
-                                {t.languageCode === "vi"
-                                  ? "Tiếng Việt"
-                                  : t.languageCode === "en"
-                                    ? "Tiếng Anh"
-                                    : t.languageCode === "ko"
-                                      ? "Tiếng Hàn"
-                                      : t.languageCode === "ja"
-                                        ? "Tiếng Nhật"
-                                        : t.languageCode}
+                                {getLanguageInfo(t.languageCode)?.label ||
+                                  t.languageCode}
                               </p>
                               <p className="text-[8px] font-bold text-slate-400">
                                 {t.audioStatus === "COMPLETED"
@@ -324,7 +321,24 @@ export default function ShopSettings({
                           </div>
                           <button
                             type="button"
-                            onClick={() => onPlayAudio(t.audioUrl)}
+                            onClick={() => {
+                              // phát audio
+                              onStallChange({
+                                ...tmpStall,
+                                ttsScript: t.ttsScript,
+                              });
+
+                              onPlayAudio(t.audioUrl);
+
+                              // đổi language dropdown
+                              onSelectedAudioLangChange(t.languageCode);
+
+                              // đổ script lên textarea
+                              onStallChange({
+                                ...tmpStall,
+                                ttsScript: t.ttsScript || "",
+                              });
+                            }}
                             className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-orange-500 transition-colors cursor-pointer"
                           >
                             <Play size={14} fill="currentColor" />

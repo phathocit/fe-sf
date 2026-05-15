@@ -8,7 +8,7 @@ export interface Stall {
   longitude: string;
   image: string;
   description?: string;
-  script?: string;
+  ttsScript?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

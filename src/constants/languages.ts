@@ -1,6 +1,6 @@
 export const LANGUAGES = [
   {
-    code: "en",
+    code: "en-US",
     label: "English",
     flag: "🇺🇸",
   },
@@ -10,47 +10,47 @@ export const LANGUAGES = [
     flag: "🇨🇳",
   },
   {
-    code: "es",
+    code: "es-ES",
     label: "Español",
     flag: "🇪🇸",
   },
   {
-    code: "hi",
+    code: "hi-IN",
     label: "हिन्दी",
     flag: "🇮🇳",
   },
   {
-    code: "ar",
+    code: "ar-XA",
     label: "العربية",
     flag: "🇸🇦",
   },
   {
-    code: "fr",
+    code: "fr-FR",
     label: "Français",
     flag: "🇫🇷",
   },
   {
-    code: "ru",
+    code: "ru-RU",
     label: "Русский",
     flag: "🇷🇺",
   },
   {
-    code: "pt",
+    code: "pt-PT",
     label: "Português",
     flag: "🇵🇹",
   },
   {
-    code: "ja",
+    code: "ja-JP",
     label: "日本語",
     flag: "🇯🇵",
   },
   {
-    code: "ko",
+    code: "ko-KR",
     label: "한국어",
     flag: "🇰🇷",
   },
   {
-    code: "vi",
+    code: "vi-VN",
     label: "Tiếng Việt",
     flag: "🇻🇳",
   },
